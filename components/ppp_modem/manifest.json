@@ -1,0 +1,7 @@
+{
+  "domain": "ppp_modem",
+  "name": "PPP Modem",
+  "codeowners": [],
+  "documentation": "",
+  "iot_class": "Local Polling"
+}
