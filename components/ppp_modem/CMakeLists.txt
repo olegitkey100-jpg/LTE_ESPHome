@@ -1,10 +1,7 @@
 idf_component_register(
     SRCS "ppp_modem_component.cpp"
-    INCLUDE_DIRS "."
-    PRIV_REQUIRES 
-        esp_modem 
-        esp_iot_solution 
-        iot_usbh_cdc 
-        iot_usbh_modem 
-        usb_host
+         "usb_drivers/iot_usbh_cdc.c"
+         "usb_drivers/iot_usbh_modem.c"
+    INCLUDE_DIRS "." "usb_drivers"
+    PRIV_REQUIRES esp_modem usb_host
 )
