@@ -14,18 +14,10 @@ static const char *TAG = "ppp_modem.component";
 
 #define EVENT_GOT_IP_BIT (BIT0)
 
-// Список сумісних модемів з правильним мапінгом полів для esp-iot-solution
+// Масив модемів із твоїм модемом SIM7670G-4G
 static const usb_modem_id_t usb_modem_id_list[] = {
-    { { USB_DEVICE_ID_MATCH_VID_PID, 0, 0, 0x1782, 0x4d11, 0, 0, 0, 0 }, 2, -1, "China Mobile, ML302/Fibocom, MC610-EU" },
-    { { USB_DEVICE_ID_MATCH_VID_PID, 0, 0, 0x1E0E, 0x9011, 0, 0, 0, 0 }, 5, -1, "SIMCOM, A7600C1/SIMCOM, A7670E" },
-    { { USB_DEVICE_ID_MATCH_VID_PID, 0, 0, 0x1E0E, 0x9205, 0, 0, 0, 0 }, 2, -1, "SIMCOM, SIM7080G" },
-    { { USB_DEVICE_ID_MATCH_VID_PID, 0, 0, 0x05C6, 0x9330, 0, 0, 0, 0 }, 2, -1, "SIMCOM, SIM7670G-4G" },
-    { { USB_DEVICE_ID_MATCH_VID_PID, 0, 0, 0x2CB7, 0x0D01, 0, 0, 0, 0 }, 2, 6, "Fibocom, LE270-CN" },
-    { { USB_DEVICE_ID_MATCH_VID_PID, 0, 0, 0x2C7C, 0x6001, 0, 0, 0, 0 }, 4, -1, "Quectel, EC600N-CN" },
-    { { USB_DEVICE_ID_MATCH_VID_PID, 0, 0, 0x2C7C, 0x0125, 0, 0, 0, 0 }, 2, -1, "Quectel, EC20" },
-    { { USB_DEVICE_ID_MATCH_VID_PID, 0, 0, 0x19D1, 0x1003, 0, 0, 0, 0 }, 2, -1, "YUGE, YM310 X09" },
-    { { USB_DEVICE_ID_MATCH_VID_PID, 0, 0, 0x19D1, 0x0001, 0, 0, 0, 0 }, 2, -1, "Luat, Air780E" },
-    { { { static_cast<usb_dev_match_flags_t>(0), 0, 0, 0, 0, 0, 0, 0, 0 }, 0, 0, 0, 0 }, 0, 0, nullptr }
+    { { (usb_dev_match_flags_t)(USB_DEVICE_ID_MATCH_VID_PID), 0, 0, 0x05C6, 0x9330, 0, 0, 0, 0 }, 2, -1, "SIMCOM, SIM7670G-4G" },
+    { { (usb_dev_match_flags_t)(0), 0, 0, 0, 0, 0, 0, 0, 0 }, 0, 0, nullptr }
 };
 
 // Обробник мережевих подій IP/PPP
