@@ -14,18 +14,18 @@ static const char *TAG = "ppp_modem.component";
 
 #define EVENT_GOT_IP_BIT (BIT0)
 
-// Список сумісних 4G/3G модемів у стандартному форматі ESP-IDF / esp-iot-solution
+// Список сумісних модемів у правильному позиційному форматі для esp-iot-solution
 static const usb_modem_id_t usb_modem_id_list[] = {
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x1782, 0x4d11}, .itf_num = 2, .data_itf_num = -1, .name = "China Mobile, ML302/Fibocom, MC610-EU"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x1E0E, 0x9011}, .itf_num = 5, .data_itf_num = -1, .name = "SIMCOM, A7600C1/SIMCOM, A7670E"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x1E0E, 0x9205}, .itf_num = 2, .data_itf_num = -1, .name = "SIMCOM, SIM7080G"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x05C6, 0x9330}, .itf_num = 2, .data_itf_num = -1, .name = "SIMCOM, SIM7670G-4G"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x2CB7, 0x0D01}, .itf_num = 2, .data_itf_num = 6, .name = "Fibocom, LE270-CN"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x2C7C, 0x6001}, .itf_num = 4, .data_itf_num = -1, .name = "Quectel, EC600N-CN"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x2C7C, 0x0125}, .itf_num = 2, .data_itf_num = -1, .name = "Quectel, EC20"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x19D1, 0x1003}, .itf_num = 2, .data_itf_num = -1, .name = "YUGE, YM310 X09"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x19D1, 0x0001}, .itf_num = 2, .data_itf_num = -1, .name = "Luat, Air780E"},
-    {.match_id = {static_cast<usb_dev_match_flags_t>(0)}},
+    { {USB_DEVICE_ID_MATCH_VID_PID, 0x1782, 0x4d11}, 2, -1, "China Mobile, ML302/Fibocom, MC610-EU" },
+    { {USB_DEVICE_ID_MATCH_VID_PID, 0x1E0E, 0x9011}, 5, -1, "SIMCOM, A7600C1/SIMCOM, A7670E" },
+    { {USB_DEVICE_ID_MATCH_VID_PID, 0x1E0E, 0x9205}, 2, -1, "SIMCOM, SIM7080G" },
+    { {USB_DEVICE_ID_MATCH_VID_PID, 0x05C6, 0x9330}, 2, -1, "SIMCOM, SIM7670G-4G" },
+    { {USB_DEVICE_ID_MATCH_VID_PID, 0x2CB7, 0x0D01}, 2, 6, "Fibocom, LE270-CN" },
+    { {USB_DEVICE_ID_MATCH_VID_PID, 0x2C7C, 0x6001}, 4, -1, "Quectel, EC600N-CN" },
+    { {USB_DEVICE_ID_MATCH_VID_PID, 0x2C7C, 0x0125}, 2, -1, "Quectel, EC20" },
+    { {USB_DEVICE_ID_MATCH_VID_PID, 0x19D1, 0x1003}, 2, -1, "YUGE, YM310 X09" },
+    { {USB_DEVICE_ID_MATCH_VID_PID, 0x19D1, 0x0001}, 2, -1, "Luat, Air780E" },
+    { { {static_cast<usb_dev_match_flags_t>(0), 0, 0, 0, 0, 0, 0, 0, 0}}, 0, 0, nullptr }
 };
 
 // Обробник мережевих подій IP/PPP
