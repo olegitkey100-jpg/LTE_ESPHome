@@ -14,9 +14,9 @@ static const char *TAG = "ppp_modem.component";
 
 #define EVENT_GOT_IP_BIT (BIT0)
 
-// Масив модемів із твоїм модемом SIM7670G-4G
+// Явне приведення типів (static_cast<uint8_t>) для уникнення narrowing conversion
 static const usb_modem_id_t usb_modem_id_list[] = {
-    { { (usb_dev_match_flags_t)(USB_DEVICE_ID_MATCH_VID_PID), 0, 0, 0x05C6, 0x9330, 0, 0, 0, 0 }, 2, -1, "SIMCOM, SIM7670G-4G" },
+    { { (usb_dev_match_flags_t)(USB_DEVICE_ID_MATCH_VID_PID), 0, 0, (uint8_t)0x05C6, (uint8_t)0x9330, 0, 0, 0, 0 }, 2, -1, "SIMCOM, SIM7670G-4G" },
     { { (usb_dev_match_flags_t)(0), 0, 0, 0, 0, 0, 0, 0, 0 }, 0, 0, nullptr }
 };
 
@@ -101,7 +101,7 @@ void PppModemComponent::setup() {
         .task_coreid = 0,
         .skip_init_usb_host_driver = false,
     };
-    usbh_cdc_driver_install(&config);
+    usbh_cdc_driver_config_install(&config); // Виправлено виклик встановлення драйвера
 
     // Конфігурація та встановлення модема
     usbh_modem_config_t modem_config = {
