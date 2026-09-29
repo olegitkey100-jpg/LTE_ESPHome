@@ -9,6 +9,7 @@ PppModemComponent = ppp_modem_ns.class_("PppModemComponent", cg.Component)
 
 CONFIG_SCHEMA = cv.COMPONENT_SCHEMA.extend(
     {
+        cv.GenerateID(): cv.declare_id(cg.Ptr(PppModemComponent)),
         cv.Optional("apn", default="internet"): cv.string,
     }
 )
