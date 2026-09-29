@@ -2,6 +2,7 @@
 #include "esphome/core/log.h"
 #include "esp_system.h"
 #include "esp_check.h"
+#include "esp_event.h"
 #include "nvs_flash.h"
 #include "driver/gpio.h"
 #include "iot_usbh_modem.h"
@@ -13,18 +14,18 @@ static const char *TAG = "ppp_modem.component";
 
 #define EVENT_GOT_IP_BIT (BIT0)
 
-// Список сумісних 4G/3G модемів (ідентично твоєму списку VID/PID)
+// Список сумісних 4G/3G модемів із повністю іменованими полями
 static const usb_modem_id_t usb_modem_id_list[] = {
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x1782, 0x4d11}, 2, -1, "China Mobile, ML302/Fibocom, MC610-EU"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x1E0E, 0x9011}, 5, -1, "SIMCOM, A7600C1/SIMCOM, A7670E"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x1E0E, 0x9205}, 2, -1, "SIMCOM, SIM7080G"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x05C6, 0x9330}, 2, -1, "SIMCOM, SIM7670G-4G"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x2CB7, 0x0D01}, 2, 6, "Fibocom, LE270-CN"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x2C7C, 0x6001}, 4, -1, "Quectel, EC600N-CN"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x2C7C, 0x0125}, 2, -1, "Quectel, EC20"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x19D1, 0x1003}, 2, -1, "YUGE, YM310 X09"},
-    {.match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x19D1, 0x0001}, 2, -1, "Luat, Air780E"},
-    {.match_id = {0}},
+    {.match_id = {.flags = USB_DEVICE_ID_MATCH_VID_PID, .idVendor = 0x1782, .idProduct = 0x4d11, .bDeviceClass = 0, .bDeviceSubClass = 0, .bDeviceProtocol = 0, .bInterfaceClass = 0, .bInterfaceSubClass = 0, .bInterfaceProtocol = 0}, .itf_num = 2, .data_itf_num = -1, .name = "China Mobile, ML302/Fibocom, MC610-EU"},
+    {.match_id = {.flags = USB_DEVICE_ID_MATCH_VID_PID, .idVendor = 0x1E0E, .idProduct = 0x9011, .bDeviceClass = 0, .bDeviceSubClass = 0, .bDeviceProtocol = 0, .bInterfaceClass = 0, .bInterfaceSubClass = 0, .bInterfaceProtocol = 0}, .itf_num = 5, .data_itf_num = -1, .name = "SIMCOM, A7600C1/SIMCOM, A7670E"},
+    {.match_id = {.flags = USB_DEVICE_ID_MATCH_VID_PID, .idVendor = 0x1E0E, .idProduct = 0x9205, .bDeviceClass = 0, .bDeviceSubClass = 0, .bDeviceProtocol = 0, .bInterfaceClass = 0, .bInterfaceSubClass = 0, .bInterfaceProtocol = 0}, .itf_num = 2, .data_itf_num = -1, .name = "SIMCOM, SIM7080G"},
+    {.match_id = {.flags = USB_DEVICE_ID_MATCH_VID_PID, .idVendor = 0x05C6, .idProduct = 0x9330, .bDeviceClass = 0, .bDeviceSubClass = 0, .bDeviceProtocol = 0, .bInterfaceClass = 0, .bInterfaceSubClass = 0, .bInterfaceProtocol = 0}, .itf_num = 2, .data_itf_num = -1, .name = "SIMCOM, SIM7670G-4G"},
+    {.match_id = {.flags = USB_DEVICE_ID_MATCH_VID_PID, .idVendor = 0x2CB7, .idProduct = 0x0D01, .bDeviceClass = 0, .bDeviceSubClass = 0, .bDeviceProtocol = 0, .bInterfaceClass = 0, .bInterfaceSubClass = 0, .bInterfaceProtocol = 0}, .itf_num = 2, .data_itf_num = 6, .name = "Fibocom, LE270-CN"},
+    {.match_id = {.flags = USB_DEVICE_ID_MATCH_VID_PID, .idVendor = 0x2C7C, .idProduct = 0x6001, .bDeviceClass = 0, .bDeviceSubClass = 0, .bDeviceProtocol = 0, .bInterfaceClass = 0, .bInterfaceSubClass = 0, .bInterfaceProtocol = 0}, .itf_num = 4, .data_itf_num = -1, .name = "Quectel, EC600N-CN"},
+    {.match_id = {.flags = USB_DEVICE_ID_MATCH_VID_PID, .idVendor = 0x2C7C, .idProduct = 0x0125, .bDeviceClass = 0, .bDeviceSubClass = 0, .bDeviceProtocol = 0, .bInterfaceClass = 0, .bInterfaceSubClass = 0, .bInterfaceProtocol = 0}, .itf_num = 2, .data_itf_num = -1, .name = "Quectel, EC20"},
+    {.match_id = {.flags = USB_DEVICE_ID_MATCH_VID_PID, .idVendor = 0x19D1, .idProduct = 0x1003, .bDeviceClass = 0, .bDeviceSubClass = 0, .bDeviceProtocol = 0, .bInterfaceClass = 0, .bInterfaceSubClass = 0, .bInterfaceProtocol = 0}, .itf_num = 2, .data_itf_num = -1, .name = "YUGE, YM310 X09"},
+    {.match_id = {.flags = USB_DEVICE_ID_MATCH_VID_PID, .idVendor = 0x19D1, .idProduct = 0x0001, .bDeviceClass = 0, .bDeviceSubClass = 0, .bDeviceProtocol = 0, .bInterfaceClass = 0, .bInterfaceSubClass = 0, .bInterfaceProtocol = 0}, .itf_num = 2, .data_itf_num = -1, .name = "Luat, Air780E"},
+    {.match_id = {static_cast<usb_dev_match_flags_t>(0)}},
 };
 
 // Обробник мережевих подій IP/PPP
