@@ -7,7 +7,7 @@ AUTO_LOAD = []
 ppp_modem_ns = cg.esphome_ns.namespace("ppp_modem")
 PppModemComponent = ppp_modem_ns.class_("PppModemComponent", cg.Component)
 
-CONFIG_SCHEMA = cv.COMPONENT_SCHEMA.extend(
+CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(PppModemComponent),
         cv.Optional("apn", default="internet"): cv.string,
