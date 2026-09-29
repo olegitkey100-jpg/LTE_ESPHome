@@ -5,7 +5,6 @@ from esphome.const import CONF_ID
 AUTO_LOAD = []
 
 ppp_modem_ns = cg.esphome_ns.namespace("ppp_modem")
-# Оголошуємо клас як такий, що успадковує Component
 PppModemComponent = ppp_modem_ns.class_("PppModemComponent", cg.Component)
 
 CONFIG_SCHEMA = cv.COMPONENT_SCHEMA.extend(
@@ -16,8 +15,7 @@ CONFIG_SCHEMA = cv.COMPONENT_SCHEMA.extend(
 )
 
 def to_code(config):
-    # Використовуємо коректне створення вказівника через каркас ESPHome
-    var = cg.new_variable(config[CONF_ID])
+    var = cg.new_variable(config[CONF_ID], PppModemComponent.new())
     yield cg.register_component(var, config)
     
     if "apn" in config:
