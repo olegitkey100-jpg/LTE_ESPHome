@@ -15,7 +15,8 @@ CONFIG_SCHEMA = cv.Schema(
 )
 
 def to_code(config):
-    var = cg.new_variable(config[CONF_ID], PppModemComponent.new())
+    # Створюємо змінну черезпряме виділення на купі з правильним типом вказівника
+    var = cg.Pvariable(config[CONF_ID], PppModemComponent.new())
     yield cg.register_component(var, config)
     
     if "apn" in config:
