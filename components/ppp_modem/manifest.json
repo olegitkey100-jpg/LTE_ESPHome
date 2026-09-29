@@ -4,5 +4,6 @@
   "codeowners": [],
   "documentation": "",
   "iot_class": "Local Polling",
-  "dependencies": ["esp32"]
+  "dependencies": ["esp32"],
+  "esp-idf_components": ["esp_modem"]
 }
