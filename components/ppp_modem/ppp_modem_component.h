@@ -4,7 +4,7 @@
 #include "esphome/core/defines.h"
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
-#include "iot_usbh_modem.h"
+#include "iot_usbh_modem/iot_usbh_modem.h"
 
 namespace esphome {
 namespace ppp_modem {
