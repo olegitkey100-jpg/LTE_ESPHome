@@ -20,6 +20,7 @@
 #include "iot_usbh_cdc.h"
 #include "usb/usb_host.h"
 #include "iot_usbh_descriptor.h"
+#include "sdkconfig.h"
 
 static const char *TAG = "USBH_CDC";
 
