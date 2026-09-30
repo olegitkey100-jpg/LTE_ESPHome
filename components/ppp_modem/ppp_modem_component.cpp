@@ -9,6 +9,7 @@
 #include "esp_netif_ppp.h"
 #include "esp_modem_api.h"
 #include "cxx_include/esp_modem_dte.hpp"
+#include "esp_modem_usb_crl_term.hpp"
 
 namespace esphome {
 namespace ppp_modem {
@@ -96,12 +97,19 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // Конфігурація та ініціалізація DTE через USB CDC
+    // Конфігурація та ініціалізація DTE
     esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
     dte_config.task_stack_size = 4096;
     dte_config.task_priority = 5;
-    
-    ESP_LOGI(TAG, "DTE config prepared. Creating esp_modem DTE and DCE instances...");
+
+    // Створення DTE об'єкта через фабричний метод esp_modem
+    auto dte = esp_modem::create_dte(&dte_config);
+    if (dte == nullptr) {
+        ESP_LOGE(TAG, "Failed to create esp_modem DTE");
+        return;
+    }
+
+    ESP_LOGI(TAG, "esp_modem DTE successfully created.");
 }
 
 void PppModemComponent::loop() {
