@@ -98,10 +98,7 @@ void PppModemComponent::setup() {
 
     // Конфігурація DTE для роботи з модемом
     esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    
-    // Ініціалізація обгортки esp_modem DTE
-    // На цьому етапі ми готуємо структури для передачі AT-команд
-    ESP_LOGI(TAG, "ESP-Modem DTE config initialized. Ready to bind with USB CDC stream.");
+    ESP_LOGI(TAG, "ESP-Modem DTE config initialized successfully.");
 }
 
 void PppModemComponent::loop() {
