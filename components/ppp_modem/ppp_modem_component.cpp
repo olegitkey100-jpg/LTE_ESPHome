@@ -5,8 +5,10 @@
 #include "esp_event.h"
 #include "nvs_flash.h"
 #include "driver/gpio.h"
+extern "C" {
 #include "iot_usbh_cdc.h"
 #include "iot_usbh_modem.h"
+}
 
 namespace esphome {
 namespace ppp_modem {
