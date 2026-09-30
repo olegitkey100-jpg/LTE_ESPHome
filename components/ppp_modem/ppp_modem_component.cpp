@@ -96,14 +96,12 @@ void PppModemComponent::setup() {
         return;
     }
 
-   // Конфігурація та ініціалізація DTE через USB CDC
+    // Конфігурація та ініціалізація DTE через USB CDC
     esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    
-    // Налаштування стеку задачі DTE за замовчуванням
     dte_config.task_stack_size = 4096;
     dte_config.task_priority = 5;
     
-    ESP_LOGI(TAG, "DTE config prepared. Initializing USB CDC stream for modem communication...");
+    ESP_LOGI(TAG, "DTE config prepared. Creating esp_modem DTE and DCE instances...");
 }
 
 void PppModemComponent::loop() {
