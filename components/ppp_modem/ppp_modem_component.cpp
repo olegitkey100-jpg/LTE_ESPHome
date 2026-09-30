@@ -9,7 +9,6 @@
 #include "esp_netif_ppp.h"
 #include "esp_modem_api.h"
 #include "cxx_include/esp_modem_dte.hpp"
-#include "esp_modem_usb_crl_term.hpp"
 
 namespace esphome {
 namespace ppp_modem {
@@ -102,7 +101,6 @@ void PppModemComponent::setup() {
     dte_config.task_stack_size = 4096;
     dte_config.task_priority = 5;
 
-    // Створення DTE об'єкта через фабричний метод esp_modem
     auto dte = esp_modem::create_dte(&dte_config);
     if (dte == nullptr) {
         ESP_LOGE(TAG, "Failed to create esp_modem DTE");
