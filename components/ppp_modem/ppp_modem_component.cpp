@@ -6,9 +6,6 @@
 #include "nvs_flash.h"
 #include "driver/gpio.h"
 #include "iot_usbh_cdc.h"
-
-// Сучасні заголовки esp_modem для v5.x
-#include "esp_modem_api.h"
 #include "esp_netif_ppp.h"
 
 namespace esphome {
@@ -18,7 +15,6 @@ static const char *TAG = "ppp_modem.component";
 
 #define EVENT_GOT_IP_BIT (BIT0)
 
-// Обробник мережевих подій IP/PPP
 static void ppp_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
     EventGroupHandle_t event_group = static_cast<EventGroupHandle_t>(arg);
     if (event_base == IP_EVENT) {
@@ -65,21 +61,19 @@ void PppModemComponent::init_usb_pins_() {
 }
 
 void PppModemComponent::setup() {
-    ESP_LOGI(TAG, "Setting up PPP 4G Modem component with modern esp_modem API...");
+    ESP_LOGI(TAG, "Setting up PPP 4G Modem component...");
 
     esp_log_level_set("esp-modem", ESP_LOG_WARN);
     esp_log_level_set("esp-modem-dte", ESP_LOG_WARN);
 
     this->init_usb_pins_();
 
-    // Ініціалізація NVS
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         nvs_flash_erase();
         nvs_flash_init();
     }
 
-    // Мережевий стек
     esp_netif_init();
 
     this->event_group_ = xEventGroupCreate();
@@ -92,7 +86,6 @@ void PppModemComponent::setup() {
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, ppp_event_handler, this->event_group_);
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, ppp_event_handler, this->event_group_);
 
-    // 1. Встановлення USB Host CDC драйвера
     usbh_cdc_driver_config_t cdc_config = {
         .task_stack_size = 1024 * 4,
         .task_priority = configMAX_PRIORITIES - 1,
@@ -101,20 +94,14 @@ void PppModemComponent::setup() {
     };
     usbh_cdc_driver_install(&cdc_config);
 
-    // 2. Сучасна ініціалізація esp_modem DTE та термінала через USB CDC
-    // (Використовуємо стандартні структури конфігурації esp_modem v5)
-    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    // Якщо твій USB CDC створює віртуальний порт / дескриптор, підключаємо його тут:
-    // (Або ініціалізуємо через вбудовані обгортки esp_modem для USB)
-
-    ESP_LOGI(TAG, "Modem hardware and modern esp_modem pipeline initialized");
+    ESP_LOGI(TAG, "USB CDC driver installed successfully");
 }
 
 void PppModemComponent::loop() {
     if (this->event_group_ != nullptr) {
         EventBits_t bits = xEventGroupGetBits(this->event_group_);
         if (bits & EVENT_GOT_IP_BIT) {
-            // Модем підключено і має IP
+            // Модем має IP
         }
     }
 }
