@@ -18,8 +18,8 @@
 // #include "iot_eth_types.h"
 // #include "iot_eth_interface.h"
 // #include "iot_eth_netif_glue.h"
-#include "esp_modem_dte.h"
-#include "dte_helper.h"
+#include "esp_modem_api.h"
+#include "esp_modem_dte_config.h"
 #include "iot_usbh_modem.h"
 #include "at_3gpp_ts_27_007.h"
 
