@@ -89,21 +89,22 @@ void PppModemComponent::setup() {
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, ppp_event_handler, this->event_group_);
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, ppp_event_handler, this->event_group_);
 
-    // usbh_cdc_driver_config_t cdc_config = {
-    //     .task_stack_size = 1024 * 4,
-    //     .task_priority = configMAX_PRIORITIES - 1,
-    //     .task_coreid = 0,
-    //     .skip_init_usb_host_driver = false,
-    // };
-    // usbh_cdc_driver_install(&cdc_config);
-    // ESP_LOGI(TAG, "USB CDC driver installed successfully");
+    // Встановлення USB CDC драйвера
+    usbh_cdc_driver_config_t cdc_config = {
+        .task_stack_size = 1024 * 4,
+        .task_priority = configMAX_PRIORITIES - 1,
+        .task_coreid = 0,
+        .skip_init_usb_host_driver = false,
+    };
+    usbh_cdc_driver_install(&cdc_config);
+    ESP_LOGI(TAG, "USB CDC driver installed successfully");
 
     // Затримка для стабілізації USB-з'єднання з модемом SIM7670G
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     // Налаштування та запуск esp_modem через USB CDC
     esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    // Якщо потрібно вказати кастомний термінал або потік для USB CDC, тут ініціалізується DTE об'єкт
+    
     // Створення мережевого інтерфейсу для PPP
     esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&cfg);
