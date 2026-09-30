@@ -8,9 +8,8 @@
 #include "iot_usbh_cdc.h"
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
-#include "ip_addr.h"
 #include "esp_ip4_addr.h"
-#include "esp_event.h"
+
 
 namespace esphome {
 namespace ppp_modem {
