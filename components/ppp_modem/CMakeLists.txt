@@ -10,5 +10,6 @@ idf_component_register(
         esp_modem 
         usb_host
         esp_netif
+        lwip
         freertos
 )
