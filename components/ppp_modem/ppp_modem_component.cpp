@@ -96,7 +96,12 @@ void PppModemComponent::setup() {
         return;
     }
 
-    ESP_LOGI(TAG, "PPP Modem base initialized successfully without direct USB crash.");
+    // Конфігурація DTE для роботи з модемом
+    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
+    
+    // Ініціалізація обгортки esp_modem DTE
+    // На цьому етапі ми готуємо структури для передачі AT-команд
+    ESP_LOGI(TAG, "ESP-Modem DTE config initialized. Ready to bind with USB CDC stream.");
 }
 
 void PppModemComponent::loop() {
