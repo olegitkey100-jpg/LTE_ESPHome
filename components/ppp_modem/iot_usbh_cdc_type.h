@@ -10,6 +10,23 @@
 #include "usb/usb_types_ch9.h"
 #include "esp_idf_version.h"
 
+// Fallbacks for Kconfig options if not defined by ESPHome build system
+#ifndef CONFIG_USBH_TASK_CORE_ID
+#define CONFIG_USBH_TASK_CORE_ID 0
+#endif
+
+#ifndef CONFIG_USBH_TASK_BASE_PRIORITY
+#define CONFIG_USBH_TASK_BASE_PRIORITY 5
+#endif
+
+#ifndef CONFIG_USBH_CDC_IN_EP_RETRY_COUNT
+#define CONFIG_USBH_CDC_IN_EP_RETRY_COUNT 3
+#endif
+
+#ifndef CONFIG_USBH_CDC_CONTROL_TRANSFER_BUFFER_SIZE
+#define CONFIG_USBH_CDC_CONTROL_TRANSFER_BUFFER_SIZE 256
+#endif
+
 // Version definitions for iot_usbh_cdc
 #define IOT_USBH_CDC_VER_MAJOR 1
 #define IOT_USBH_CDC_VER_MINOR 0
