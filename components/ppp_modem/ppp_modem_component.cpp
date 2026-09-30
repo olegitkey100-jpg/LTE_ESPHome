@@ -101,13 +101,13 @@ void PppModemComponent::setup() {
     dte_config.task_stack_size = 4096;
     dte_config.task_priority = 5;
 
-    auto dte = esp_modem::create_dte(&dte_config);
+    auto dte = esp_modem::create_uart_dte(&dte_config);
     if (dte == nullptr) {
-        ESP_LOGE(TAG, "Failed to create esp_modem DTE");
+        ESP_LOGE(TAG, "Failed to create esp_modem UART DTE");
         return;
     }
 
-    ESP_LOGI(TAG, "esp_modem DTE successfully created.");
+    ESP_LOGI(TAG, "esp_modem UART DTE successfully created.");
 }
 
 void PppModemComponent::loop() {
