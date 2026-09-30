@@ -8,7 +8,8 @@
 #include "iot_usbh_cdc.h"
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
-
+#include "esp_modem_api.h"
+#include "cxx_include/esp_modem_dte.hpp"
 
 namespace esphome {
 namespace ppp_modem {
@@ -65,8 +66,8 @@ void PppModemComponent::init_usb_pins_() {
 void PppModemComponent::setup() {
     ESP_LOGI(TAG, "Setting up PPP 4G Modem component...");
 
-    esp_log_level_set("esp-modem", ESP_LOG_WARN);
-    esp_log_level_set("esp-modem-dte", ESP_LOG_WARN);
+    esp_log_level_set("esp-modem", ESP_LOG_INFO);
+    esp_log_level_set("esp-modem-dte", ESP_LOG_INFO);
 
     this->init_usb_pins_();
 
@@ -95,15 +96,30 @@ void PppModemComponent::setup() {
         .skip_init_usb_host_driver = false,
     };
     usbh_cdc_driver_install(&cdc_config);
-
     ESP_LOGI(TAG, "USB CDC driver installed successfully");
+
+    // Затримка для стабілізації USB-з'єднання з модемом SIM7670G
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    // Налаштування та запуск esp_modem через USB CDC
+    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
+    // Якщо потрібно вказати кастомний термінал або потік для USB CDC, тут ініціалізується DTE об'єкт
+    // Створення мережевого інтерфейсу для PPP
+    esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
+    esp_netif_t *esp_netif = esp_netif_new(&cfg);
+    if (esp_netif == nullptr) {
+        ESP_LOGE(TAG, "Failed to create esp_netif for PPP");
+        return;
+    }
+
+    ESP_LOGI(TAG, "PPP Modem initialization sequence configured. Waiting for connection...");
 }
 
 void PppModemComponent::loop() {
     if (this->event_group_ != nullptr) {
         EventBits_t bits = xEventGroupGetBits(this->event_group_);
         if (bits & EVENT_GOT_IP_BIT) {
-            // Модем має IP
+            // Модем успішно отримав IP-адресу через PPP
         }
     }
 }
