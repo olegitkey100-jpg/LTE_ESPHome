@@ -6,8 +6,14 @@
 #pragma once
 
 #include <stdint.h>
+#include "sdkconfig.h"
 #include "usb/usb_types_ch9.h"
 #include "esp_idf_version.h"
+
+// Version definitions for iot_usbh_cdc
+#define IOT_USBH_CDC_VER_MAJOR 1
+#define IOT_USBH_CDC_VER_MINOR 0
+#define IOT_USBH_CDC_VER_PATCH 0
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 1, 0)
 #undef ESP_STATIC_ASSERT
@@ -16,21 +22,21 @@
 
 // For compatibility with older IDF versions
 #ifndef ESP_RETURN_VOID_ON_ERROR
-#define ESP_RETURN_VOID_ON_ERROR(x, log_tag, format, ...) do {                                  \
-        esp_err_t err_rc_ = (x);                                                                \
-        if (unlikely(err_rc_ != ESP_OK)) {                                                      \
+#define ESP_RETURN_VOID_ON_ERROR(x, log_tag, format, ...) do {                                     \
+        esp_err_t err_rc_ = (x);                                                                    \
+        if (unlikely(err_rc_ != ESP_OK)) {                                                          \
             ESP_LOGE(log_tag, "%s(%d): " format, __FUNCTION__, __LINE__, ##__VA_ARGS__);        \
-            return;                                                                             \
-        }                                                                                       \
+            return;                                                                                 \
+        }                                                                                           \
     } while(0)
 #endif
 
 #ifndef ESP_RETURN_VOID_ON_FALSE
-#define ESP_RETURN_VOID_ON_FALSE(a, log_tag, format, ...) do {                                  \
-        if (unlikely(!(a))) {                                                                   \
+#define ESP_RETURN_VOID_ON_FALSE(a, log_tag, format, ...) do {                                     \
+        if (unlikely(!(a))) {                                                                       \
             ESP_LOGE(log_tag, "%s(%d): " format, __FUNCTION__, __LINE__, ##__VA_ARGS__);        \
-            return;                                                                             \
-        }                                                                                       \
+            return;                                                                                 \
+        }                                                                                           \
     } while(0)
 #endif
 
@@ -135,36 +141,22 @@ typedef union {
 #define USB_CS_DESCRIPTOR_SUBTYPE_WIRELESS_HANDSET_CONTROL 0x11
 
 // ----------------- Header Functional Descriptor -------------------
+#define USB_CDC_HEADER_FUNC_DESC_SIZE       5
 
-/**
- * @brief Size of a Header Functional Descriptor in bytes
- */
-#define USB_CDC_HEADER_FUNC_DESC_SIZE        5
-
-/**
- * @brief Structure representing a Header Functional Descriptor
- *
- */
 typedef union {
     struct {
-        uint8_t bFunctionLength;                    /**< Size of the descriptor in bytes */
+        uint8_t bFunctionLength;                /**< Size of the descriptor in bytes */
         uint8_t bDescriptorType;            /**< CS_INTERFACE descriptor type */
         uint8_t bDescriptorSubtype;         /**< Header functional descriptor subtype */
-        uint16_t bcdCDC;                   /**< USB Class Definitions for Communications Devices Specification release number in binary-coded decimal. */
+        uint16_t bcdCDC;                     /**< USB Class Definitions for Communications Devices Specification release number in binary-coded decimal. */
     } USB_DESC_ATTR;                        /**< USB descriptor attributes */
     uint8_t val[USB_CDC_HEADER_FUNC_DESC_SIZE];          /**< Descriptor value */
 } usb_cdc_header_func_desc_t;
 ESP_STATIC_ASSERT(sizeof(usb_cdc_header_func_desc_t) == USB_CDC_HEADER_FUNC_DESC_SIZE, "Size of usb_cdc_header_func_desc_t incorrect");
 
 // ----------------- Union Functional Descriptor -------------------
-/**
- * @brief Size of a Union Functional Descriptor in bytes
- */
-#define USB_CDC_UNION_FUNC_DESC_SIZE         6
-/**
- * @brief Structure representing a Union Functional Descriptor
- *
- */
+#define USB_CDC_UNION_FUNC_DESC_SIZE        6
+
 typedef union {
     struct {
         uint8_t bFunctionLength;            /**< Size of the descriptor in bytes */
@@ -173,16 +165,12 @@ typedef union {
         uint8_t bControlInterface;          /**< The interface number of the Communications or Data Class interface, designated as the controlling interface for the union. */
         uint8_t bSubordinateInterface0;          /**< Interface number of first subordinate interface in the union.  */
         uint8_t bSubordinateInterface1;          /**< Interface number of second subordinate interface in the union.  */
-        // bSubordinateInterfaceN-1         Interface number of N-1 subordinate interface in the union.
     } USB_DESC_ATTR;                        /**< USB descriptor attributes */
     uint8_t val[USB_CDC_UNION_FUNC_DESC_SIZE];          /**< Descriptor value */
 } usb_cdc_union_func_desc_t;
 ESP_STATIC_ASSERT(sizeof(usb_cdc_union_func_desc_t) == USB_CDC_UNION_FUNC_DESC_SIZE, "Size of usb_cdc_union_func_desc_t incorrect");
 
 // ----------------- Ethernet Networking Functional Descriptor -------------------
-/**
- * @brief Size of an Ethernet Networking Functional Descriptor in bytes
- */
 #define USB_CDC_ETHERNET_NETWORKING_FUNC_DESC_SIZE  13
 
 typedef union {
@@ -200,10 +188,6 @@ typedef union {
 } usb_cdc_ethernet_networking_func_desc_t;
 
 // --------------- Interface Association Descriptor -----------------
-/**
- * @brief Size of an Interface Association Descriptor in bytes.
- * An IAD must appear before the sequence of interface descriptors to which it is associated and must be immediately adjacent to them.
- */
 #define USB_INTERFACE_ASSOCIATION_DESC_SIZE  8
 typedef union {
     struct {
@@ -220,30 +204,22 @@ typedef union {
 } usb_IAD_desc_t;
 
 // ---------------------- Device Qualifier Descriptor ---------------------
-/**
- * @brief Size of a Device Qualifier Descriptor in bytes
- */
 #define USB_DEVICE_QUALIFIER_DESC_SIZE 10
 typedef union {
     struct {
-        uint8_t bLength;                   /**< Size of the descriptor in bytes */
-        uint8_t bDescriptorType;           /**< fixed to 0x06 (Device Qualifier) */
-        uint16_t bcdUSB;                   /**< USB Specification Release Number in binary-coded decimal */
-        uint8_t bDeviceClass;              /**< Device class code */
-        uint8_t bDeviceSubClass;           /**< Device subclass code */
-        uint8_t bDeviceProtocol;           /**< Device protocol code */
-        uint8_t bMaxPacketSize0;           /**< Maximum packet size for endpoint zero */
+        uint8_t bLength;                 /**< Size of the descriptor in bytes */
+        uint8_t bDescriptorType;          /**< fixed to 0x06 (Device Qualifier) */
+        uint16_t bcdUSB;                  /**< USB Specification Release Number in binary-coded decimal */
+        uint8_t bDeviceClass;             /**< Device class code */
+        uint8_t bDeviceSubClass;          /**< Device subclass code */
+        uint8_t bDeviceProtocol;          /**< Device protocol code */
+        uint8_t bMaxPacketSize0;          /**< Maximum packet size for endpoint zero */
         uint8_t bNumConfigurations;         /**< Number of possible configurations */
-        uint8_t bReserved;                 /**< Reserved for future use, must be zero */
+        uint8_t bReserved;                /**< Reserved for future use, must be zero */
     } USB_DESC_ATTR;                        /**< USB descriptor attributes */
     uint8_t val[USB_DEVICE_QUALIFIER_DESC_SIZE];  /**< Descriptor value */
 } usb_device_qualifier_desc_t;
 
-/**
- * @brief USB CDC Request Codes
- *
- * @see Table 19, USB CDC specification rev. 1.2
- */
 typedef enum {
     CDC_REQ_SEND_ENCAPSULATED_COMMAND = 0x00,
     CDC_REQ_GET_ENCAPSULATED_RESPONSE = 0x01,
