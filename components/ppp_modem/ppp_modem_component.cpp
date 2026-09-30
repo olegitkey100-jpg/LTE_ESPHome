@@ -8,7 +8,6 @@
 #include "iot_usbh_cdc.h"
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
-#include "esp_ip4_addr.h"
 
 
 namespace esphome {
