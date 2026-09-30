@@ -89,14 +89,14 @@ void PppModemComponent::setup() {
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, ppp_event_handler, this->event_group_);
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, ppp_event_handler, this->event_group_);
 
-    usbh_cdc_driver_config_t cdc_config = {
-        .task_stack_size = 1024 * 4,
-        .task_priority = configMAX_PRIORITIES - 1,
-        .task_coreid = 0,
-        .skip_init_usb_host_driver = false,
-    };
-    usbh_cdc_driver_install(&cdc_config);
-    ESP_LOGI(TAG, "USB CDC driver installed successfully");
+    // usbh_cdc_driver_config_t cdc_config = {
+    //     .task_stack_size = 1024 * 4,
+    //     .task_priority = configMAX_PRIORITIES - 1,
+    //     .task_coreid = 0,
+    //     .skip_init_usb_host_driver = false,
+    // };
+    // usbh_cdc_driver_install(&cdc_config);
+    // ESP_LOGI(TAG, "USB CDC driver installed successfully");
 
     // Затримка для стабілізації USB-з'єднання з модемом SIM7670G
     vTaskDelay(pdMS_TO_TICKS(2000));
