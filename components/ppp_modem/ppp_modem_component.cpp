@@ -8,7 +8,6 @@
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
 #include "esp_modem_api.h"
-#include "cxx_include/esp_modem_dte.hpp"
 
 namespace esphome {
 namespace ppp_modem {
@@ -96,18 +95,21 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // Конфігурація та ініціалізація DTE
+    // Конфігурація DTE та DCE
     esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
     dte_config.task_stack_size = 4096;
     dte_config.task_priority = 5;
 
-    auto dte = esp_modem::create_uart_dte(&dte_config);
-    if (dte == nullptr) {
-        ESP_LOGE(TAG, "Failed to create esp_modem UART DTE");
+    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(this->apn_.c_str());
+
+    // Використовуємо універсальний фабричний метод створення загального модема
+    auto modem = esp_modem_new_dev(ESP_MODEM_DCE_GENERIC, &dte_config, &dce_config, esp_netif);
+    if (modem == nullptr) {
+        ESP_LOGE(TAG, "Failed to create esp_modem device");
         return;
     }
 
-    ESP_LOGI(TAG, "esp_modem UART DTE successfully created.");
+    ESP_LOGI(TAG, "esp_modem generic device successfully created and initialized.");
 }
 
 void PppModemComponent::loop() {
