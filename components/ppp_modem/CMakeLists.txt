@@ -8,4 +8,6 @@ idf_component_register(
     PRIV_REQUIRES 
         esp_modem 
         usb_host
+        esp_netif
+        freertos
 )
