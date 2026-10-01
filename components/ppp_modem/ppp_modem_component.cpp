@@ -65,7 +65,6 @@ static void usb_lib_task(void *arg) {
     
     // Реєстрація клієнта USB Host
     usb_host_client_config_t client_config = {
-        .is_async = false,
         .max_event_msg_sq_num = 5,
         .cb = client_event_callback,
         .arg = nullptr,
