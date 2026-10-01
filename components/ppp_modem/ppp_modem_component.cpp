@@ -70,26 +70,16 @@ void PppModemComponent::setup() {
     esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
     esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(this->apn_.c_str());
 
-    // Створення USB DTE об'єкта для керування модемом через USB Host
-    esp_modem_dte_t *dte = esp_modem_dte_new_usb(&dte_config);
-    if (dte == nullptr) {
-        ESP_LOGE(TAG, "Failed to create USB DTE for modem");
+    // 3. Ініціалізація модема через єдиний high-level API esp_modem_new
+    // Функція приймає конфігурації та створений netif, повертаючи загальний дескриптор модема
+    esp_modem_handle_t modem_handle = esp_modem_new(&dte_config, &dce_config, esp_netif);
+    if (modem_handle == nullptr) {
+        ESP_LOGE(TAG, "Failed to initialize esp_modem instance");
         this->mark_failed();
         return;
     }
 
-    // Створення DCE об'єкта для SIM7670
-    esp_modem_dce_t *dce = esp_modem_dce_new_sim7600(&dte, &dce_config);
-    if (dce == nullptr) {
-        ESP_LOGE(TAG, "Failed to create SIM7600/7670 DCE object");
-        this->mark_failed();
-        return;
-    }
-
-    // Зв'язування з мережевим інтерфейсом та запуск PPP
-    esp_modem_set_default_netif(dce, esp_netif);
-
-    ESP_LOGI(TAG, "USB Modem DTE & DCE successfully initialized. Target APN: %s", this->apn_.c_str());
+    ESP_LOGI(TAG, "USB Modem successfully initialized via esp_modem_new. Target APN: %s", this->apn_.c_str());
 }
 void PppModemComponent::loop() {
 }
