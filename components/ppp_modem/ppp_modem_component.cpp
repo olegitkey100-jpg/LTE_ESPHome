@@ -8,7 +8,6 @@
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
 #include "usb/usb_host.h"
-#include "usb/cdc_acm_host.h"
 
 namespace esphome {
 namespace ppp_modem {
@@ -85,7 +84,7 @@ void PppModemComponent::setup() {
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, ppp_event_handler, this->event_group_);
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, ppp_event_handler, this->event_group_);
 
-    // Ініціалізація USB Host стека для роботи з модемом SIM7670G (VID: 0x05C6, PID: 0x9330)
+    // Ініціалізація базового USB Host стека
     const usb_host_config_t host_config = {
         .skip_phy_setup = false,
         .intr_flags = ESP_INTR_FLAG_LEVEL1,
@@ -96,20 +95,7 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // Ініціалізація CDC-ACM класа для роботи з віртуальними послідовними портами модема
-    const cdc_acm_host_driver_config_t cdc_config = {
-        .driver_task_stack_size = 4096,
-        .driver_task_priority = 5,
-        .xQueueSize = 10,
-        .connection_timeout_ms = 500,
-    };
-    ret = cdc_acm_host_install(&cdc_config);
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "Failed to install CDC-ACM host driver: %s", esp_err_to_name(ret));
-        return;
-    }
-
-    ESP_LOGI(TAG, "USB Host and CDC-ACM driver successfully initialized for SIM7670G. APN: %s", this->apn_.c_str());
+    ESP_LOGI(TAG, "USB Host stack successfully initialized for SIM7670G (VID: 0x05C6, PID: 0x9330). APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
