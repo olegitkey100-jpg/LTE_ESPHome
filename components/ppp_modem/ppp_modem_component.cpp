@@ -29,6 +29,19 @@ static void ppp_event_handler(void *arg, esp_event_base_t event_base, int32_t ev
     }
 }
 
+static void client_event_callback(const usb_host_client_event_msg_t *event_msg, void *arg) {
+    switch (event_msg->type) {
+        case USB_HOST_CLIENT_EVENT_NEW_DEV:
+            ESP_LOGI(TAG, "New USB device connected, address: %d", event_msg->new_dev.address);
+            break;
+        case USB_HOST_CLIENT_EVENT_DEV_GONE:
+            ESP_LOGI(TAG, "USB device disconnected, address: %d", event_msg->dev_gone.dev_hdl);
+            break;
+        default:
+            break;
+    }
+}
+
 PppModemComponent::PppModemComponent() = default;
 
 void PppModemComponent::init_usb_pins_() {
@@ -84,7 +97,7 @@ void PppModemComponent::setup() {
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, ppp_event_handler, this->event_group_);
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, ppp_event_handler, this->event_group_);
 
-    // Ініціалізація базового USB Host стека
+    // Ініціалізація USB Host стека
     const usb_host_config_t host_config = {
         .skip_phy_setup = false,
         .intr_flags = ESP_INTR_FLAG_LEVEL1,
@@ -95,10 +108,29 @@ void PppModemComponent::setup() {
         return;
     }
 
-    ESP_LOGI(TAG, "USB Host stack successfully initialized for SIM7670G (VID: 0x05C6, PID: 0x9330). APN: %s", this->apn_.c_str());
+    // Реєстрація клієнта USB Host для відстеження підключення пристроїв (VID: 0x05C6, PID: 0x9330)
+    usb_host_client_config_t client_config = {
+        .is_synchronous = false,
+        .max_num_event_msg = 5,
+        .async = {
+            .client_callback = client_event_callback,
+            .arg = nullptr,
+        },
+    };
+    usb_host_client_handle_t client_hdl;
+    ret = usb_host_client_register(&client_config, &client_hdl);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register USB host client: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    ESP_LOGI(TAG, "USB Host and Client successfully initialized for SIM7670G. APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
+    bool all_events_handled = false;
+    usb_host_lib_handle_events(pdMS_TO_TICKS(10), &all_events_handled);
+
     if (this->event_group_ != nullptr) {
         EventBits_t bits = xEventGroupGetBits(this->event_group_);
         if (bits & EVENT_GOT_IP_BIT) {
