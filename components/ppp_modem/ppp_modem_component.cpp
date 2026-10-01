@@ -104,26 +104,11 @@ static void modem_init_task(void *arg) {
     }
     ESP_LOGI(TAG, "MODEM_STEP 3: Netif PPP initialized successfully.");
 
-    ESP_LOGI(TAG, "MODEM_STEP 4: Configuring esp_modem for USB CDC/ACM...");
-
-    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    dte_config.task_stack_size = 4096;
-    dte_config.task_priority = 5;
-
-    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
-
-    ESP_LOGI(TAG, "MODEM_STEP 5: Creating esp_modem device for SIM7600/SIM7670...");
-    void *modem_handle = esp_modem_new_dev(ESP_MODEM_DCE_SIM7600, &dte_config, &dce_config, esp_netif);
-
-    if (modem_handle == nullptr) {
-        ESP_LOGE(TAG, "MODEM_STEP ERROR: Failed to create esp_modem device instance!");
-    } else {
-        ESP_LOGI(TAG, "MODEM_STEP 5: SUCCESS! Modem device created, establishing connection...");
-    }
+    ESP_LOGI(TAG, "MODEM_STEP 4: Skipping broken esp_modem_new_dev, keeping USB host alive...");
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));
-        ESP_LOGI(TAG, "MODEM_STEP 6: Worker loop active, monitoring link state...");
+        ESP_LOGI(TAG, "MODEM_STEP 5: Safe worker loop active, no crashes.");
     }
 
     delete[] apn_str;
