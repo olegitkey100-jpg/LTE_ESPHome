@@ -16,7 +16,6 @@ static const char *TAG = "ppp_modem.component";
 
 #define EVENT_GOT_IP_BIT (BIT0)
 
-// Статичний хендлер клієнта USB Host для доступу з колбека
 static usb_host_client_handle_t s_usb_client_hdl = nullptr;
 
 static void ppp_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
@@ -32,7 +31,6 @@ static void ppp_event_handler(void *arg, esp_event_base_t event_base, int32_t ev
     }
 }
 
-// Колбек подій USB Host клієнта
 static void client_event_callback(const usb_host_client_event_msg_t *event_msg, void *arg) {
     switch (event_msg->event) {
         case USB_HOST_CLIENT_EVENT_NEW_DEV: {
@@ -41,16 +39,13 @@ static void client_event_callback(const usb_host_client_event_msg_t *event_msg, 
             usb_device_handle_t dev_hdl;
             esp_err_t err = usb_host_device_open(s_usb_client_hdl, event_msg->new_dev.address, &dev_hdl);
             if (err == ESP_OK) {
-                usb_device_info_t dev_info;
-                if (usb_host_device_info(dev_hdl, &dev_info) == ESP_OK) {
-                    ESP_LOGI(TAG, "USB Device Info -> VID: 0x%04X, PID: 0x%04X, Speed: %d",
-                             dev_info.bDeviceDescriptor.idVendor,
-                             dev_info.bDeviceDescriptor.idProduct,
-                             dev_info.speed);
+                const usb_device_desc_t *dev_desc;
+                if (usb_host_get_device_descriptor(dev_hdl, &dev_desc) == ESP_OK) {
+                    ESP_LOGI(TAG, "USB Device Info -> VID: 0x%04X, PID: 0x%04X",
+                             dev_desc->idVendor,
+                             dev_desc->idProduct);
 
-                    // Перевірка нашого модема SIM7670G (VID: 0x05C6, PID: 0x9330)
-                    if (dev_info.bDeviceDescriptor.idVendor == 0x05C6 &&
-                        dev_info.bDeviceDescriptor.idProduct == 0x9330) {
+                    if (dev_desc->idVendor == 0x05C6 && dev_desc->idProduct == 0x9330) {
                         ESP_LOGI(TAG, ">>> SIM7670G-4G Modem successfully identified! <<<");
                     }
                 }
@@ -123,7 +118,6 @@ void PppModemComponent::setup() {
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, ppp_event_handler, this->event_group_);
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, ppp_event_handler, this->event_group_);
 
-    // Ініціалізація USB Host стека
     const usb_host_config_t host_config = {
         .skip_phy_setup = false,
         .intr_flags = ESP_INTR_FLAG_LEVEL1,
@@ -134,12 +128,13 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // Реєстрація клієнта USB Host для опитування підключених пристроїв
     usb_host_client_config_t client_config = {
         .is_synchronous = false,
         .max_num_event_msg = 5,
-        .cb = client_event_callback,
-        .arg = nullptr,
+        .async = {
+            .client_event_callback = client_event_callback,
+            .arg = nullptr,
+        }
     };
     ret = usb_host_client_register(&client_config, &s_usb_client_hdl);
     if (ret != ESP_OK) {
