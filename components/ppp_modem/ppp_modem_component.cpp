@@ -16,9 +16,9 @@ static const char *TAG = "ppp_modem.component";
 PppModemComponent::PppModemComponent() = default;
 
 void PppModemComponent::init_usb_pins_() {
-#ifdef CONFIG_ESP32_S3_USB_OTG
+    // Прибрано #ifdef CONFIG_ESP32_S3_USB_OTG, щоб ініціалізація виконувалась завжди
     const gpio_config_t io_config = {
-        .pin_bit_mask = BIT64(GPIO_NUM_18),
+        .pin_bit_mask = 1ULL << GPIO_NUM_18,
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -28,7 +28,7 @@ void PppModemComponent::init_usb_pins_() {
     gpio_set_level(GPIO_NUM_18, 1);
 
     const gpio_config_t power_io_config = {
-        .pin_bit_mask = BIT64(GPIO_NUM_17) | BIT64(GPIO_NUM_12) | BIT64(GPIO_NUM_13),
+        .pin_bit_mask = (1ULL << GPIO_NUM_17) | (1ULL << GPIO_NUM_12) | (1ULL << GPIO_NUM_13),
         .mode = GPIO_MODE_OUTPUT,
         .pull_up_en = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -41,8 +41,7 @@ void PppModemComponent::init_usb_pins_() {
     gpio_set_level(GPIO_NUM_13, 0);
     vTaskDelay(pdMS_TO_TICKS(10));
     gpio_set_level(GPIO_NUM_12, 1);
-    ESP_LOGI(TAG, "USB OTG pins initialized for SIM7670G");
-#endif
+    ESP_LOGI(TAG, "Forced USB OTG and power pins initialized for SIM7670G");
 }
 
 // Callback подій клієнта USB Host
