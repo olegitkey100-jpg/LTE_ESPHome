@@ -41,12 +41,20 @@ static void client_event_callback(const usb_host_client_event_msg_t *event_msg, 
             if (err == ESP_OK) {
                 const usb_device_desc_t *dev_desc;
                 if (usb_host_get_device_descriptor(dev_hdl, &dev_desc) == ESP_OK) {
-                    ESP_LOGI(TAG, "USB Device Info -> VID: 0x%04X, PID: 0x%04X",
+                    ESP_LOGI(TAG, "USB Device Info -> VID: 0x%04X, PID: 0x%04X, Configs: %d",
                              dev_desc->idVendor,
-                             dev_desc->idProduct);
+                             dev_desc->idProduct,
+                             dev_desc->bNumConfigurations);
 
                     if (dev_desc->idVendor == 0x05C6 && dev_desc->idProduct == 0x9330) {
                         ESP_LOGI(TAG, ">>> SIM7670G-4G Modem successfully identified! <<<");
+                        
+                        // Зчитуємо конфігураційний дескриптор для пошуку інтерфейсів
+                        const usb_config_desc_t *config_desc;
+                        if (usb_host_get_active_config_descriptor(dev_hdl, &config_desc) == ESP_OK) {
+                            ESP_LOGI(TAG, "Active config descriptor loaded, total length: %d, interfaces: %d",
+                                     config_desc->wTotalLength, config_desc->bNumInterfaces);
+                        }
                     }
                 }
                 usb_host_device_close(s_usb_client_hdl, dev_hdl);
@@ -118,7 +126,6 @@ void PppModemComponent::setup() {
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, ppp_event_handler, this->event_group_);
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, ppp_event_handler, this->event_group_);
 
-    // Ініціалізація USB Host стека
     const usb_host_config_t host_config = {
         .skip_phy_setup = false,
         .intr_flags = ESP_INTR_FLAG_LEVEL1,
@@ -142,7 +149,6 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // Створення PPP мережевого інтерфейсу
     esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&cfg);
     if (esp_netif == nullptr) {
