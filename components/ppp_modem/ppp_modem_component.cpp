@@ -16,7 +16,6 @@ static const char *TAG = "ppp_modem.component";
 PppModemComponent::PppModemComponent() = default;
 
 void PppModemComponent::init_usb_pins_() {
-    // Прибрано #ifdef CONFIG_ESP32_S3_USB_OTG, щоб ініціалізація виконувалась завжди
     const gpio_config_t io_config = {
         .pin_bit_mask = 1ULL << GPIO_NUM_18,
         .mode = GPIO_MODE_OUTPUT,
@@ -44,7 +43,6 @@ void PppModemComponent::init_usb_pins_() {
     ESP_LOGI(TAG, "Forced USB OTG and power pins initialized for SIM7670G");
 }
 
-// Callback подій клієнта USB Host
 static void client_event_callback(const usb_host_client_event_msg_t *event_msg, void *arg) {
     const char *TAG = "usb_client";
     switch (event_msg->event) {
@@ -59,7 +57,6 @@ static void client_event_callback(const usb_host_client_event_msg_t *event_msg, 
     }
 }
 
-// Фонова задача для обробки подій USB Host та клієнта
 static void usb_lib_task(void *arg) {
     const char *TAG = "usb_host_task";
     
@@ -96,7 +93,7 @@ void PppModemComponent::setup() {
 
     esp_netif_init();
 
-    // 1. Інсталяція бібліотеки USB Host
+    // 1. Інсталяція шини USB Host
     const usb_host_config_t host_config = {
         .skip_phy_setup = false,
         .intr_flags = ESP_INTR_FLAG_LEVEL1,
@@ -108,7 +105,7 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // 2. Створення фонової задачі для обслуговування USB Host
+    // 2. Фонова задача обробки подій USB
     BaseType_t task_created = xTaskCreate(
         usb_lib_task,
         "usb_host",
@@ -123,13 +120,26 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // 3. Ініціалізація мережевого інтерфейсу PPP та модема
+    // 3. Ініціалізація мережевого стека PPP
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
     if (esp_netif == nullptr) {
         ESP_LOGE(TAG, "Failed to create ESP-NETIF PPP instance");
         this->mark_failed();
         return;
+    }
+
+    // 4. Запуск конфігурації esp_modem для USB CDC
+    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
+    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG();
+    dce_config.apn = this->apn_.c_str();
+
+    // Створення терміналу esp_modem через USB CDC Host
+    esp_modem_dte_t *dte = esp_modem_dte_new_usb(&dte_config);
+    if (dte == nullptr) {
+        ESP_LOGE(TAG, "Failed to create USB DTE for modem");
+    } else {
+        ESP_LOGI(TAG, "USB DTE successfully created, starting modem initialization...");
     }
 
     ESP_LOGI(TAG, "USB Host and PPP Netif initialized. Target APN: %s", this->apn_.c_str());
