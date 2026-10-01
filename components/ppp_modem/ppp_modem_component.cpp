@@ -129,18 +129,8 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // 4. Запуск конфігурації esp_modem для USB CDC
-    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG();
-    dce_config.apn = this->apn_.c_str();
-
-    // Створення терміналу esp_modem через USB CDC Host
-    esp_modem_dte_t *dte = esp_modem_dte_new_usb(&dte_config);
-    if (dte == nullptr) {
-        ESP_LOGE(TAG, "Failed to create USB DTE for modem");
-    } else {
-        ESP_LOGI(TAG, "USB DTE successfully created, starting modem initialization...");
-    }
+    // 4. Використання конфігурації DCE з передачею APN
+    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(this->apn_.c_str());
 
     ESP_LOGI(TAG, "USB Host and PPP Netif initialized. Target APN: %s", this->apn_.c_str());
 }
