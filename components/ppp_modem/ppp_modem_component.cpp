@@ -3,7 +3,9 @@
 #include "esp_system.h"
 #include "nvs_flash.h"
 #include "driver/gpio.h"
-#include "iot_usbh_modem.h"
+#include "esp_netif.h"
+#include "esp_netif_ppp.h"
+#include "esp_modem_api.h"
 
 namespace esphome {
 namespace ppp_modem {
@@ -43,7 +45,7 @@ void PppModemComponent::init_usb_pins_() {
 }
 
 void PppModemComponent::setup() {
-    ESP_LOGI(TAG, "Setting up SIM7670G 4G Modem via iot_usbh_modem...");
+    ESP_LOGI(TAG, "Setting up SIM7670G 4G Modem via esp_modem...");
 
     this->init_usb_pins_();
 
@@ -53,36 +55,25 @@ void PppModemComponent::setup() {
         nvs_flash_init();
     }
 
-    // Конфігурація підсистеми USB модема (використовуємо стандартний автовибір або передаємо нульовий список, оскільки драйвер підтримує A7670/SIM7670 "з коробки")
-    usbh_modem_config_t modem_config = {
-        .modem_id_list = nullptr,
-        .at_tx_buffer_size = 512,
-        .at_rx_buffer_size = 512,
-        .pdp = {
-            .enable = true,
-            .cid = 1,
-            .type = "IP",
-            .apn = this->apn_.c_str()
-        }
-    };
+    esp_netif_init();
 
-    ret = usbh_modem_install(&modem_config);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to install USB modem subsystem: %s", esp_err_to_name(ret));
+    // Створення мережевого інтерфейсу PPP для esp_modem
+    esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
+    esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
+    if (esp_netif == nullptr) {
+        ESP_LOGE(TAG, "Failed to create ESP-NETIF PPP instance");
         this->mark_failed();
         return;
     }
 
-    usbh_modem_ppp_auto_connect(true);
-
-    ESP_LOGI(TAG, "USB modem subsystem successfully installed. Target APN: %s", this->apn_.c_str());
+    ESP_LOGI(TAG, "ESP-NETIF PPP created successfully. APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
 }
 
 void PppModemComponent::dump_config() {
-    ESP_LOGCONFIG(TAG, "SIM7670G 4G Modem Component (iot_usbh_modem):");
+    ESP_LOGCONFIG(TAG, "SIM7670G 4G Modem Component (esp_modem):");
     ESP_LOGCONFIG(TAG, "  APN: %s", this->apn_.c_str());
 }
 
