@@ -10,12 +10,6 @@ namespace ppp_modem {
 
 static const char *TAG = "ppp_modem.component";
 
-// Список підтримуваних ідентифікаторів нашого модема SIM7670G
-static const usb_modem_id_t s_modem_id_list[] = {
-    { .vendor_id = 0x05C6, .product_id = 0x9330 },
-    { 0 } // Термінатор списку
-};
-
 PppModemComponent::PppModemComponent() = default;
 
 void PppModemComponent::init_usb_pins_() {
@@ -59,9 +53,9 @@ void PppModemComponent::setup() {
         nvs_flash_init();
     }
 
-    // Конфігурація підсистеми USB модема
+    // Конфігурація підсистеми USB модема (використовуємо стандартний автовибір або передаємо нульовий список, оскільки драйвер підтримує A7670/SIM7670 "з коробки")
     usbh_modem_config_t modem_config = {
-        .modem_id_list = s_modem_id_list,
+        .modem_id_list = nullptr,
         .at_tx_buffer_size = 512,
         .at_rx_buffer_size = 512,
         .pdp = {
@@ -72,7 +66,6 @@ void PppModemComponent::setup() {
         }
     };
 
-    // Встановлення драйвера через iot_usbh_modem
     ret = usbh_modem_install(&modem_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to install USB modem subsystem: %s", esp_err_to_name(ret));
@@ -80,14 +73,12 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // Увімкнення автоматичного встановлення PPP-з'єднання при появі пристрою
     usbh_modem_ppp_auto_connect(true);
 
     ESP_LOGI(TAG, "USB modem subsystem successfully installed. Target APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
-    // Внутрішні задачі та обробка подій модема керуються фоновими тасками iot_usbh_modem
 }
 
 void PppModemComponent::dump_config() {
