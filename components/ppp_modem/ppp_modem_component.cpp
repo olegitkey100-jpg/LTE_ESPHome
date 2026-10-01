@@ -86,20 +86,35 @@ static void modem_init_task(void *arg) {
     char *apn_str = (char *) arg;
     const char *TAG = "modem_init";
 
-    ESP_LOGI(TAG, "MODEM_STEP 1: Waiting 3s for USB stability...");
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    ESP_LOGI(TAG, "MODEM_STEP 1: Waiting 6s for modem USB enumeration and stability...");
+    vTaskDelay(pdMS_TO_TICKS(6000));
+    ESP_LOGI(TAG, "MODEM_STEP 2: Delay finished. Creating ESP-NETIF PPP instance...");
 
-    ESP_LOGI(TAG, "MODEM_STEP 2: Initializing USB CDC-ACM DTE configuration...");
-    
-    // Перевіряємо конфігурацію для USB-модема замість UART
+    esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
+    esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
+    if (esp_netif == nullptr) {
+        ESP_LOGE(TAG, "MODEM_STEP ERROR: Failed to create ESP-NETIF PPP instance");
+        delete[] apn_str;
+        vTaskDelete(nullptr);
+        return;
+    }
+    ESP_LOGI(TAG, "MODEM_STEP 3: ESP-NETIF PPP created successfully.");
+
+    ESP_LOGI(TAG, "MODEM_STEP 4: Configuring DTE/DCE with APN: %s", apn_str);
     esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
     esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
 
-    ESP_LOGI(TAG, "MODEM_STEP 3: DTE/DCE structures prepared for APN: %s", apn_str);
+    ESP_LOGI(TAG, "MODEM_STEP 5: Calling esp_modem_new_dev(ESP_MODEM_DCE_SIM7600)...");
+    void *modem_handle = esp_modem_new_dev(ESP_MODEM_DCE_SIM7600, &dte_config, &dce_config, esp_netif);
+    
+    if (modem_handle == nullptr) {
+        ESP_LOGE(TAG, "MODEM_STEP 6: Failed to create esp_modem device!");
+    } else {
+        ESP_LOGI(TAG, "MODEM_STEP 6: SUCCESS! Modem initialized successfully via USB!");
+    }
 
     while (1) {
-        ESP_LOGI(TAG, "MODEM_STEP 4: USB modem worker running...");
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(10000));
     }
 
     delete[] apn_str;
