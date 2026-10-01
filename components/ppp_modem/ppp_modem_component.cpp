@@ -5,6 +5,7 @@
 #include "driver/gpio.h"
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
+#include "usb/usb_host.h"
 
 namespace esphome {
 namespace ppp_modem {
@@ -43,8 +44,18 @@ void PppModemComponent::init_usb_pins_() {
 #endif
 }
 
+// Фонова задача для обробки подій USB Host
+static void usb_lib_task(void *arg) {
+    const char *TAG = "usb_host_task";
+    while (1) {
+        // Обробка подій шини USB Host
+        uint32_t event_flags;
+        usb_host_lib_handle_events(portMAX_DELAY, &event_flags);
+    }
+}
+
 void PppModemComponent::setup() {
-    ESP_LOGI(TAG, "Setting up SIM7670G 4G Modem component...");
+    ESP_LOGI(TAG, "Setting up SIM7670G 4G Modem component with USB Host...");
 
     this->init_usb_pins_();
 
@@ -56,7 +67,34 @@ void PppModemComponent::setup() {
 
     esp_netif_init();
 
-    // Створення мережевого інтерфейсу PPP
+    // 1. Інсталяція бібліотеки USB Host
+    const usb_host_config_t host_config = {
+        .skip_phy_setup = false,
+        .intr_flags = ESP_INTR_FLAG_LEVEL1,
+    };
+    ret = usb_host_install(&host_config);
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "Failed to install USB Host library: %s", esp_err_to_name(ret));
+        this->mark_failed();
+        return;
+    }
+
+    // 2. Створення фонової задачі для обслуговування USB Host
+    BaseType_t task_created = xTaskCreate(
+        usb_lib_task,
+        "usb_host",
+        4096,
+        nullptr,
+        5,
+        nullptr
+    );
+    if (task_created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create USB host task");
+        this->mark_failed();
+        return;
+    }
+
+    // 3. Створення мережевого інтерфейсу PPP
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
     if (esp_netif == nullptr) {
@@ -65,7 +103,7 @@ void PppModemComponent::setup() {
         return;
     }
 
-    ESP_LOGI(TAG, "PPP Netif initialized successfully. Target APN: %s", this->apn_.c_str());
+    ESP_LOGI(TAG, "USB Host stack and PPP Netif initialized. Target APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
