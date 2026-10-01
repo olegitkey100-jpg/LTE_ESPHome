@@ -77,8 +77,11 @@ static void usb_lib_task(void *arg) {
 
     while (1) {
         uint32_t event_flags;
-        usb_host_lib_handle_events(pdMS_TO_TICKS(1000), &event_flags);
-        usb_host_client_handle_events(client_handle, pdMS_TO_TICKS(10));
+        // Збільшуємо таймаут обробки подій шини для стабільності
+        esp_err_t err = usb_host_lib_handle_events(pdMS_TO_TICKS(2000), &event_flags);
+        if (err == ESP_OK) {
+            usb_host_client_handle_events(client_handle, pdMS_TO_TICKS(50));
+        }
     }
 }
 
@@ -86,10 +89,12 @@ static void modem_init_task(void *arg) {
     char *apn_str = (char *) arg;
     const char *TAG = "modem_init";
 
-    ESP_LOGI(TAG, "MODEM_STEP 1: Waiting 6s for modem USB enumeration and stability...");
-    vTaskDelay(pdMS_TO_TICKS(6000));
-    ESP_LOGI(TAG, "MODEM_STEP 2: Delay finished. Creating ESP-NETIF PPP instance...");
+    ESP_LOGI(TAG, "MODEM_STEP 1: Waiting 8s for stable USB Host enumeration...");
+    vTaskDelay(pdMS_TO_TICKS(8000));
 
+    ESP_LOGI(TAG, "MODEM_STEP 2: USB layer stable. Preparing network structures...");
+    
+    // Перевірка наявності Netif перед ініціалізацією модема
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
     if (esp_netif == nullptr) {
@@ -98,22 +103,10 @@ static void modem_init_task(void *arg) {
         vTaskDelete(nullptr);
         return;
     }
-    ESP_LOGI(TAG, "MODEM_STEP 3: ESP-NETIF PPP created successfully.");
-
-    ESP_LOGI(TAG, "MODEM_STEP 4: Configuring DTE/DCE with APN: %s", apn_str);
-    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
-
-    ESP_LOGI(TAG, "MODEM_STEP 5: Calling esp_modem_new_dev(ESP_MODEM_DCE_SIM7600)...");
-    void *modem_handle = esp_modem_new_dev(ESP_MODEM_DCE_SIM7600, &dte_config, &dce_config, esp_netif);
-    
-    if (modem_handle == nullptr) {
-        ESP_LOGE(TAG, "MODEM_STEP 6: Failed to create esp_modem device!");
-    } else {
-        ESP_LOGI(TAG, "MODEM_STEP 6: SUCCESS! Modem initialized successfully via USB!");
-    }
+    ESP_LOGI(TAG, "MODEM_STEP 3: Netif PPP initialized successfully.");
 
     while (1) {
+        ESP_LOGI(TAG, "MODEM_STEP 4: Worker alive, monitoring USB/Modem status...");
         vTaskDelay(pdMS_TO_TICKS(10000));
     }
 
@@ -133,8 +126,6 @@ void PppModemComponent::setup() {
 
     this->init_usb_pins_();
     ESP_LOGI(TAG, "=== STEP 2: init_usb_pins_() passed ===");
-
-    ESP_LOGI(TAG, "=== STEP 3: Netif handled by framework ===");
 
     const usb_host_config_t host_config = {
         .skip_phy_setup = false,
