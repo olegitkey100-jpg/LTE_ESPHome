@@ -133,7 +133,6 @@ void PppModemComponent::setup() {
         .max_num_event_msg = 5,
         .async = {
             .client_event_callback = client_event_callback,
-            .arg = nullptr,
         }
     };
     ret = usb_host_client_register(&client_config, &s_usb_client_hdl);
