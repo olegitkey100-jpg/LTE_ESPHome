@@ -44,18 +44,49 @@ void PppModemComponent::init_usb_pins_() {
 #endif
 }
 
-// Фонова задача для обробки подій USB Host
+// Callback для подій клієнта USB Host (підключення/відключення пристроїв)
+static void client_event_callback(const usb_host_client_event_msg_t *event_msg, void *arg) {
+    const char *TAG = "usb_client";
+    switch (event_msg->event) {
+        case USB_HOST_CLIENT_EVENT_NEW_DEV:
+            ESP_LOGI(TAG, "New USB device detected on the bus (Address: %d)", event_msg->new_dev.address);
+            break;
+        case USB_HOST_CLIENT_EVENT_DEV_GONE:
+            ESP_LOGW(TAG, "USB device disconnected");
+            break;
+        default:
+            break;
+    }
+}
+
+// Фонова задача для обробки подій USB Host та клієнта
 static void usb_lib_task(void *arg) {
     const char *TAG = "usb_host_task";
+    
+    // Реєстрація клієнта USB Host
+    usb_host_client_config_t client_config = {
+        .is_async = false,
+        .max_event_msg_sq_num = 5,
+        .cb = client_event_callback,
+        .arg = nullptr,
+    };
+    usb_host_client_handle_t client_handle;
+    if (usb_host_client_register(&client_config, &client_handle) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register USB host client");
+        vTaskDelete(nullptr);
+        return;
+    }
+
     while (1) {
         // Обробка подій шини USB Host
         uint32_t event_flags;
-        usb_host_lib_handle_events(portMAX_DELAY, &event_flags);
+        usb_host_lib_handle_events(pdMS_TO_TICKS(1000), &event_flags);
+        usb_host_client_handle_events(client_handle, pdMS_TO_TICKS(10));
     }
 }
 
 void PppModemComponent::setup() {
-    ESP_LOGI(TAG, "Setting up SIM7670G 4G Modem component with USB Host...");
+    ESP_LOGI(TAG, "Setting up SIM7670G 4G Modem component with USB Host & Client...");
 
     this->init_usb_pins_();
 
@@ -79,7 +110,7 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // 2. Створення фонової задачі для обслуговування USB Host
+    // 2. Створення фонової задачі для обслуговування USB Host та Client
     BaseType_t task_created = xTaskCreate(
         usb_lib_task,
         "usb_host",
@@ -103,7 +134,7 @@ void PppModemComponent::setup() {
         return;
     }
 
-    ESP_LOGI(TAG, "USB Host stack and PPP Netif initialized. Target APN: %s", this->apn_.c_str());
+    ESP_LOGI(TAG, "USB Host client registered and PPP Netif initialized. Target APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
