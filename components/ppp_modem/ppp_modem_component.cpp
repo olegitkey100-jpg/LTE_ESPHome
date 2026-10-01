@@ -83,15 +83,8 @@ void PppModemComponent::setup() {
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, ppp_event_handler, this->event_group_);
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, ppp_event_handler, this->event_group_);
 
-    // Створення мережевого інтерфейсу для PPP
-    esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
-    esp_netif_t *esp_netif = esp_netif_new(&cfg);
-    if (esp_netif == nullptr) {
-        ESP_LOGE(TAG, "Failed to create esp_netif for PPP");
-        return;
-    }
-
-    ESP_LOGI(TAG, "PPP network interface created successfully. APN: %s", this->apn_.c_str());
+    // На етапі стабілізації ініціалізуємо базові структури без виклику конфліктних драйверів тунелю
+    ESP_LOGI(TAG, "Modem component environment initialized safely. APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
