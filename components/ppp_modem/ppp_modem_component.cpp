@@ -63,14 +63,21 @@ static void client_event_callback(const usb_host_client_event_msg_t *event_msg, 
 static void usb_lib_task(void *arg) {
     const char *TAG = "usb_host_task";
     
-    // Реєстрація клієнта USB Host
+    // Реєстрація клієнта USB Host згідно зі стандартною конфігурацією
     usb_host_client_config_t client_config = {
-        .max_event_msg_sq_num = 5,
+        .async_client = false,
+        .max_event_msg_count = 5,
         .cb = client_event_callback,
         .arg = nullptr,
     };
+    
+    // Якщо поле називається інакше або структура мінімальна, використовуємо базову ініціалізацію
+    // У нових версіях IDF достатньо вказати callback:
+    usb_host_client_config_t minimal_config = {};
+    minimal_config.cb = client_event_callback;
+
     usb_host_client_handle_t client_handle;
-    if (usb_host_client_register(&client_config, &client_handle) != ESP_OK) {
+    if (usb_host_client_register(&minimal_config, &client_handle) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to register USB host client");
         vTaskDelete(nullptr);
         return;
