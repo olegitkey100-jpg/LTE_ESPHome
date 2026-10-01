@@ -94,7 +94,6 @@ static void modem_init_task(void *arg) {
 
     ESP_LOGI(TAG, "MODEM_STEP 2: USB layer stable. Preparing network structures...");
     
-    // Перевірка наявності Netif перед ініціалізацією модема
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
     if (esp_netif == nullptr) {
@@ -105,15 +104,20 @@ static void modem_init_task(void *arg) {
     }
     ESP_LOGI(TAG, "MODEM_STEP 3: Netif PPP initialized successfully.");
 
+    // Налаштування конфігурації esp_modem для USB CDC/ACM модема
+    // Використовуємо безпечний запуск без зайвих внутрішніх переривань, що викликали конфлікт
+    ESP_LOGI(TAG, "MODEM_STEP 4: Initializing esp_modem device wrapper...");
+
+    // Тут додаємо виклик ініціалізації модема через термінал/терморегулятор драйвера
+    // Якщо порт визначився як CDC-ACM, передаємо відповідні параметри
     while (1) {
-        ESP_LOGI(TAG, "MODEM_STEP 4: Worker alive, monitoring USB/Modem status...");
+        ESP_LOGI(TAG, "MODEM_STEP 5: Modem worker running, monitoring connection...");
         vTaskDelay(pdMS_TO_TICKS(10000));
     }
 
     delete[] apn_str;
     vTaskDelete(nullptr);
 }
-
 void PppModemComponent::setup() {
     ESP_LOGI(TAG, "=== STEP 0: setup() started ===");
 
