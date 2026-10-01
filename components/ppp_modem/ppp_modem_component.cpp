@@ -106,19 +106,15 @@ static void modem_init_task(void *arg) {
 
     ESP_LOGI(TAG, "MODEM_STEP 4: Configuring esp_modem for USB CDC/ACM...");
 
-    // Конфігурація термінала та джерела для esp_modem під USB CDC
     esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    // Виставляємо параметри підключення до USB-абстракції модема
     dte_config.task_stack_size = 4096;
     dte_config.task_priority = 5;
 
-    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG();
-    // Присвоюємо APN, який передали в компонент
-    // (у структурі dce_config зазвичай задається вручну або через AT-команди)
+    // Передаємо APN рядок у макрос конфігурації DCE
+    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
 
     ESP_LOGI(TAG, "MODEM_STEP 5: Starting AT command communication and network attachment...");
 
-    // Головний цикл моніторингу та утримання з'єднання
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));
         ESP_LOGI(TAG, "MODEM_STEP 6: Worker loop active, checking link state...");
