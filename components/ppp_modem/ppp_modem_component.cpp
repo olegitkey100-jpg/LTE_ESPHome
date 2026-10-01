@@ -6,6 +6,7 @@
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
 #include "usb/usb_host.h"
+#include "esp_modem_api.h"
 
 namespace esphome {
 namespace ppp_modem {
@@ -44,17 +45,47 @@ void PppModemComponent::init_usb_pins_() {
 #endif
 }
 
-// Фонова задача для обробки подій USB Host (шини)
+// Callback подій клієнта USB Host
+static void client_event_callback(const usb_host_client_event_msg_t *event_msg, void *arg) {
+    const char *TAG = "usb_client";
+    switch (event_msg->event) {
+        case USB_HOST_CLIENT_EVENT_NEW_DEV:
+            ESP_LOGI(TAG, "New USB device detected on the bus (Address: %d)", event_msg->new_dev.address);
+            break;
+        case USB_HOST_CLIENT_EVENT_DEV_GONE:
+            ESP_LOGW(TAG, "USB device disconnected");
+            break;
+        default:
+            break;
+    }
+}
+
+// Фонова задача для обробки подій USB Host та клієнта
 static void usb_lib_task(void *arg) {
     const char *TAG = "usb_host_task";
+    
+    usb_host_client_config_t client_config;
+    memset(&client_config, 0, sizeof(client_config));
+    client_config.max_num_event_msg = 5;
+    client_config.async.client_event_callback = client_event_callback;
+    client_config.async.callback_arg = nullptr;
+
+    usb_host_client_handle_t client_handle;
+    if (usb_host_client_register(&client_config, &client_handle) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register USB host client");
+        vTaskDelete(nullptr);
+        return;
+    }
+
     while (1) {
         uint32_t event_flags;
         usb_host_lib_handle_events(pdMS_TO_TICKS(1000), &event_flags);
+        usb_host_client_handle_events(client_handle, pdMS_TO_TICKS(10));
     }
 }
 
 void PppModemComponent::setup() {
-    ESP_LOGI(TAG, "Setting up SIM7670G 4G Modem component with USB Host...");
+    ESP_LOGI(TAG, "Setting up SIM7670G 4G Modem component with USB Host & esp_modem...");
 
     this->init_usb_pins_();
 
@@ -93,7 +124,7 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // 3. Створення мережевого інтерфейсу PPP
+    // 3. Ініціалізація мережевого інтерфейсу PPP та модема
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
     if (esp_netif == nullptr) {
@@ -102,7 +133,7 @@ void PppModemComponent::setup() {
         return;
     }
 
-    ESP_LOGI(TAG, "USB Host stack and PPP Netif initialized. Target APN: %s", this->apn_.c_str());
+    ESP_LOGI(TAG, "USB Host and PPP Netif initialized. Target APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
