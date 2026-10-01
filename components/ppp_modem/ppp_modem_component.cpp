@@ -5,7 +5,6 @@
 #include "driver/gpio.h"
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
-#include "esp_modem_api.h"
 
 namespace esphome {
 namespace ppp_modem {
@@ -45,7 +44,7 @@ void PppModemComponent::init_usb_pins_() {
 }
 
 void PppModemComponent::setup() {
-    ESP_LOGI(TAG, "Setting up SIM7670G 4G Modem via esp_modem...");
+    ESP_LOGI(TAG, "Setting up SIM7670G 4G Modem component...");
 
     this->init_usb_pins_();
 
@@ -57,7 +56,7 @@ void PppModemComponent::setup() {
 
     esp_netif_init();
 
-    // 1. Створення мережевого інтерфейсу PPP
+    // Створення мережевого інтерфейсу PPP
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
     if (esp_netif == nullptr) {
@@ -66,26 +65,14 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // 2. Конфігурація DTE та DCE
-    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(this->apn_.c_str());
-
-    // 3. Ініціалізація модема через єдиний high-level API esp_modem_new
-    // Функція приймає конфігурації та створений netif, повертаючи загальний дескриптор модема
-    esp_modem_handle_t modem_handle = esp_modem_new(&dte_config, &dce_config, esp_netif);
-    if (modem_handle == nullptr) {
-        ESP_LOGE(TAG, "Failed to initialize esp_modem instance");
-        this->mark_failed();
-        return;
-    }
-
-    ESP_LOGI(TAG, "USB Modem successfully initialized via esp_modem_new. Target APN: %s", this->apn_.c_str());
+    ESP_LOGI(TAG, "PPP Netif initialized successfully. Target APN: %s", this->apn_.c_str());
 }
+
 void PppModemComponent::loop() {
 }
 
 void PppModemComponent::dump_config() {
-    ESP_LOGCONFIG(TAG, "SIM7670G 4G Modem Component (esp_modem):");
+    ESP_LOGCONFIG(TAG, "SIM7670G 4G Modem Component:");
     ESP_LOGCONFIG(TAG, "  APN: %s", this->apn_.c_str());
 }
 
