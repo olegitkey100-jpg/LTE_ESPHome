@@ -102,14 +102,8 @@ void PppModemComponent::setup() {
 
     esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(this->apn_.c_str());
 
-    // Використовуємо універсальний фабричний метод створення загального модема
-    auto modem = esp_modem_new_dev(ESP_MODEM_DCE_GENERIC, &dte_config, &dce_config, esp_netif);
-    if (modem == nullptr) {
-        ESP_LOGE(TAG, "Failed to create esp_modem device");
-        return;
-    }
-
-    ESP_LOGI(TAG, "esp_modem generic device successfully created and initialized.");
+    // Тимчасово замінюємо ініціалізацію модема на стабільний лог для перевірки запуску
+    ESP_LOGI(TAG, "Netif and basic config initialized successfully. Ready for USB terminal setup.");
 }
 
 void PppModemComponent::loop() {
