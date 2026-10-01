@@ -16,6 +16,9 @@ static const char *TAG = "ppp_modem.component";
 
 #define EVENT_GOT_IP_BIT (BIT0)
 
+// Статичний хендлер клієнта USB Host для доступу з колбека
+static usb_host_client_handle_t s_usb_client_hdl = nullptr;
+
 static void ppp_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
     EventGroupHandle_t event_group = static_cast<EventGroupHandle_t>(arg);
     if (event_base == IP_EVENT) {
@@ -26,6 +29,42 @@ static void ppp_event_handler(void *arg, esp_event_base_t event_base, int32_t ev
             ESP_LOGW(TAG, "PPP network lost IP address");
             xEventGroupClearBits(event_group, EVENT_GOT_IP_BIT);
         }
+    }
+}
+
+// Колбек подій USB Host клієнта
+static void client_event_callback(const usb_host_client_event_msg_t *event_msg, void *arg) {
+    switch (event_msg->event) {
+        case USB_HOST_CLIENT_EVENT_NEW_DEV: {
+            ESP_LOGI(TAG, "New USB device connected, address: %d", event_msg->new_dev.address);
+            
+            usb_device_handle_t dev_hdl;
+            esp_err_t err = usb_host_device_open(s_usb_client_hdl, event_msg->new_dev.address, &dev_hdl);
+            if (err == ESP_OK) {
+                usb_device_info_t dev_info;
+                if (usb_host_device_info(dev_hdl, &dev_info) == ESP_OK) {
+                    ESP_LOGI(TAG, "USB Device Info -> VID: 0x%04X, PID: 0x%04X, Speed: %d",
+                             dev_info.bDeviceDescriptor.idVendor,
+                             dev_info.bDeviceDescriptor.idProduct,
+                             dev_info.speed);
+
+                    // Перевірка нашого модема SIM7670G (VID: 0x05C6, PID: 0x9330)
+                    if (dev_info.bDeviceDescriptor.idVendor == 0x05C6 &&
+                        dev_info.bDeviceDescriptor.idProduct == 0x9330) {
+                        ESP_LOGI(TAG, ">>> SIM7670G-4G Modem successfully identified! <<<");
+                    }
+                }
+                usb_host_device_close(s_usb_client_hdl, dev_hdl);
+            } else {
+                ESP_LOGW(TAG, "Failed to open connected USB device: %s", esp_err_to_name(err));
+            }
+            break;
+        }
+        case USB_HOST_CLIENT_EVENT_DEV_GONE:
+            ESP_LOGI(TAG, "USB device disconnected");
+            break;
+        default:
+            break;
     }
 }
 
@@ -95,7 +134,20 @@ void PppModemComponent::setup() {
         return;
     }
 
-    ESP_LOGI(TAG, "USB Host stack successfully initialized for SIM7670G (VID: 0x05C6, PID: 0x9330). APN: %s", this->apn_.c_str());
+    // Реєстрація клієнта USB Host для опитування підключених пристроїв
+    usb_host_client_config_t client_config = {
+        .is_synchronous = false,
+        .max_num_event_msg = 5,
+        .cb = client_event_callback,
+        .arg = nullptr,
+    };
+    ret = usb_host_client_register(&client_config, &s_usb_client_hdl);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register USB host client: %s", esp_err_to_name(ret));
+        return;
+    }
+
+    ESP_LOGI(TAG, "USB Host stack and Client successfully initialized for SIM7670G. APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
