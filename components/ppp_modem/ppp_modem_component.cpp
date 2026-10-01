@@ -110,14 +110,20 @@ static void modem_init_task(void *arg) {
     dte_config.task_stack_size = 4096;
     dte_config.task_priority = 5;
 
-    // Передаємо APN рядок у макрос конфігурації DCE
     esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
 
-    ESP_LOGI(TAG, "MODEM_STEP 5: Starting AT command communication and network attachment...");
+    ESP_LOGI(TAG, "MODEM_STEP 5: Creating esp_modem device for SIM7600/SIM7670...");
+    void *modem_handle = esp_modem_new_dev(ESP_MODEM_DCE_SIM7600, &dte_config, &dce_config, esp_netif);
+
+    if (modem_handle == nullptr) {
+        ESP_LOGE(TAG, "MODEM_STEP ERROR: Failed to create esp_modem device instance!");
+    } else {
+        ESP_LOGI(TAG, "MODEM_STEP 5: SUCCESS! Modem device created, establishing connection...");
+    }
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));
-        ESP_LOGI(TAG, "MODEM_STEP 6: Worker loop active, checking link state...");
+        ESP_LOGI(TAG, "MODEM_STEP 6: Worker loop active, monitoring link state...");
     }
 
     delete[] apn_str;
