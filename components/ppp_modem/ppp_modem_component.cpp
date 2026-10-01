@@ -91,7 +91,13 @@ void PppModemComponent::setup() {
         return;
     }
 
-    ESP_LOGI(TAG, "PPP network interface created successfully. APN: %s", this->apn_.c_str());
+    // Запускаємо зв'язок через PPP інтерфейс
+    if (esp_netif_ppp_start(esp_netif) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start PPP netif");
+        return;
+    }
+
+    ESP_LOGI(TAG, "PPP netif started successfully. APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
