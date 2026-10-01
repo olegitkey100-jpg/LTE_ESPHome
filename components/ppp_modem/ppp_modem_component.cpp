@@ -82,30 +82,35 @@ static void usb_lib_task(void *arg) {
     }
 }
 
-// Асинхронна задача для ініціалізації модема після старту системи
+// Покрокова діагностична задача ініціалізації модема
 static void modem_init_task(void *arg) {
     char *apn_str = (char *) arg;
     const char *TAG = "modem_init";
 
-    ESP_LOGI(TAG, "Waiting for USB host and modem to stabilize...");
-    vTaskDelay(pdMS_TO_TICKS(3000)); // Даємо шині 3 секунди на розкрутку
+    ESP_LOGI(TAG, "1. Waiting for USB host and modem to stabilize (3s)...");
+    vTaskDelay(pdMS_TO_TICKS(3000));
 
+    ESP_LOGI(TAG, "2. Initializing ESP-NETIF PPP instance...");
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
     if (esp_netif == nullptr) {
         ESP_LOGE(TAG, "Failed to create ESP-NETIF PPP instance");
+        delete[] apn_str;
         vTaskDelete(nullptr);
         return;
     }
+    ESP_LOGI(TAG, "3. ESP-NETIF PPP created successfully.");
 
+    ESP_LOGI(TAG, "4. Preparing DTE/DCE configs for APN: %s...", apn_str);
     esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
     esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
 
+    ESP_LOGI(TAG, "5. Calling esp_modem_new_dev()...");
     void *modem_handle = esp_modem_new_dev(ESP_MODEM_DCE_SIM7600, &dte_config, &dce_config, esp_netif);
     if (modem_handle == nullptr) {
         ESP_LOGE(TAG, "Failed to create esp_modem device for SIM7670/7600");
     } else {
-        ESP_LOGI(TAG, "esp_modem successfully initialized for SIM7670/7600!");
+        ESP_LOGI(TAG, "6. esp_modem successfully initialized!");
     }
 
     delete[] apn_str;
@@ -152,12 +157,12 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // 3. Запуск ініціалізації модема в окремій фоновій задачі, щоб уникнути watchdog reset
+    // 3. Запуск покрокової задачі ініціалізації модема
     char *apn_copy = new char[this->apn_.length() + 1];
     strcpy(apn_copy, this->apn_.c_str());
     xTaskCreate(modem_init_task, "modem_init", 4096, apn_copy, 4, nullptr);
 
-    ESP_LOGI(TAG, "USB Host and background modem initialization scheduled. Target APN: %s", this->apn_.c_str());
+    ESP_LOGI(TAG, "Setup completed, waiting for background task...");
 }
 
 void PppModemComponent::loop() {
