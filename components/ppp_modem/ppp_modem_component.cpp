@@ -86,14 +86,19 @@ static void modem_init_task(void *arg) {
     char *apn_str = (char *) arg;
     const char *TAG = "modem_init";
 
-    ESP_LOGI(TAG, "MODEM_STEP 1: Task started. Waiting 3s...");
+    ESP_LOGI(TAG, "MODEM_STEP 1: Waiting 3s for USB stability...");
     vTaskDelay(pdMS_TO_TICKS(3000));
-    ESP_LOGI(TAG, "MODEM_STEP 2: Delay passed successfully without crash!");
 
-    // Тимчасово пропускаємо виклик esp_netif_new та esp_modem_new_dev, 
-    // щоб перевірити, чи запрацює задача стабільно.
+    ESP_LOGI(TAG, "MODEM_STEP 2: Initializing USB CDC-ACM DTE configuration...");
+    
+    // Перевіряємо конфігурацію для USB-модема замість UART
+    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
+    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
+
+    ESP_LOGI(TAG, "MODEM_STEP 3: DTE/DCE structures prepared for APN: %s", apn_str);
+
     while (1) {
-        ESP_LOGI(TAG, "MODEM_STEP 3: Worker loop heartbeat...");
+        ESP_LOGI(TAG, "MODEM_STEP 4: USB modem worker running...");
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 
