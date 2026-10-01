@@ -82,6 +82,42 @@ static void usb_lib_task(void *arg) {
     }
 }
 
+// Покрокова ініціалізація модема в ізольованій задачі з детальними логами
+static void modem_init_task(void *arg) {
+    char *apn_str = (char *) arg;
+    const char *TAG = "modem_init";
+
+    ESP_LOGI(TAG, "MODEM_STEP 1: Waiting 3s for USB stability...");
+    vTaskDelay(pdMS_TO_TICKS(3000));
+
+    ESP_LOGI(TAG, "MODEM_STEP 2: Creating ESP-NETIF PPP instance...");
+    esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
+    esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
+    if (esp_netif == nullptr) {
+        ESP_LOGE(TAG, "Failed to create ESP-NETIF PPP instance");
+        delete[] apn_str;
+        vTaskDelete(nullptr);
+        return;
+    }
+    ESP_LOGI(TAG, "MODEM_STEP 3: ESP-NETIF PPP created successfully.");
+
+    ESP_LOGI(TAG, "MODEM_STEP 4: Setting up DTE/DCE configs with APN: %s", apn_str);
+    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
+    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
+
+    ESP_LOGI(TAG, "MODEM_STEP 5: Calling esp_modem_new_dev(ESP_MODEM_DCE_SIM7600)...");
+    void *modem_handle = esp_modem_new_dev(ESP_MODEM_DCE_SIM7600, &dte_config, &dce_config, esp_netif);
+    
+    if (modem_handle == nullptr) {
+        ESP_LOGE(TAG, "MODEM_STEP 6: Failed to create esp_modem device!");
+    } else {
+        ESP_LOGI(TAG, "MODEM_STEP 6: SUCCESS! Modem initialized successfully.");
+    }
+
+    delete[] apn_str;
+    vTaskDelete(nullptr);
+}
+
 void PppModemComponent::setup() {
     ESP_LOGI(TAG, "=== STEP 0: setup() started ===");
 
@@ -98,7 +134,6 @@ void PppModemComponent::setup() {
     esp_netif_init();
     ESP_LOGI(TAG, "=== STEP 3: esp_netif_init() passed ===");
 
-    // Додаємо ініціалізацію USB Host
     const usb_host_config_t host_config = {
         .skip_phy_setup = false,
         .intr_flags = ESP_INTR_FLAG_LEVEL1,
@@ -111,7 +146,6 @@ void PppModemComponent::setup() {
     }
     ESP_LOGI(TAG, "=== STEP 4: usb_host_install() passed ===");
 
-    // Запускаємо задачу обробки подій USB
     BaseType_t task_created = xTaskCreate(
         usb_lib_task,
         "usb_host",
@@ -125,9 +159,13 @@ void PppModemComponent::setup() {
         this->mark_failed();
         return;
     }
-    ESP_LOGI(TAG, "=== STEP 5: usb_lib_task created successfully ===");
+    ESP_LOGI(TAG, "=== STEP 5: usb_lib_task created ===");
 
-    ESP_LOGI(TAG, "=== USB HOST TEST COMPLETED WITHOUT CRASH ===");
+    // Запускаємо задачу ініціалізації модема
+    char *apn_copy = new char[this->apn_.length() + 1];
+    strcpy(apn_copy, this->apn_.c_str());
+    xTaskCreate(modem_init_task, "modem_init", 4096, apn_copy, 4, nullptr);
+    ESP_LOGI(TAG, "=== STEP 6: modem_init_task spawned ===");
 }
 
 void PppModemComponent::loop() {
