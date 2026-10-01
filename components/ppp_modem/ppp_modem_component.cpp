@@ -57,7 +57,7 @@ void PppModemComponent::setup() {
 
     esp_netif_init();
 
-    // Створення мережевого інтерфейсу PPP для esp_modem
+    // Створення мережевого інтерфейсу PPP
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
     if (esp_netif == nullptr) {
@@ -66,7 +66,12 @@ void PppModemComponent::setup() {
         return;
     }
 
-    ESP_LOGI(TAG, "ESP-NETIF PPP created successfully. APN: %s", this->apn_.c_str());
+    // Налаштування конфігурації esp_modem для роботи через USB та PPP
+    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
+    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG();
+    dce_config.apn = this->apn_.c_str();
+
+    ESP_LOGI(TAG, "ESP-NETIF PPP and Modem structures prepared. Target APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
