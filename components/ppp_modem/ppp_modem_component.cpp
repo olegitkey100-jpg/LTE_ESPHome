@@ -7,7 +7,6 @@
 #include "driver/gpio.h"
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
-#include "esp_modem_api.h"
 
 namespace esphome {
 namespace ppp_modem {
@@ -64,9 +63,6 @@ void PppModemComponent::init_usb_pins_() {
 void PppModemComponent::setup() {
     ESP_LOGI(TAG, "Setting up PPP 4G Modem component...");
 
-    esp_log_level_set("esp-modem", ESP_LOG_INFO);
-    esp_log_level_set("esp-modem-dte", ESP_LOG_INFO);
-
     this->init_usb_pins_();
 
     esp_err_t ret = nvs_flash_init();
@@ -95,25 +91,7 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // Налаштування конфігурації DTE та DCE
-    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    dte_config.task_stack_size = 4096;
-    dte_config.task_priority = 5;
-
-    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(this->apn_.c_str());
-
-    // Використовуємо створення через VFS/USB інтерфейс термінала для зв'язку з модемом
-    // (Шлях залежить від ноди USB-модема у VFS, зазвичай це /dev/usb/cdc-acm0 або подібний)
-    ESP_LOGI(TAG, "Initializing modem via VFS/USB interface...");
-    
-    // Створюємо термінал через VFS шлях (або базовий конструктор девайса)
-    auto modem = esp_modem_new_dev(ESP_MODEM_DCE_GENERIC, &dte_config, &dce_config, esp_netif);
-    if (modem == nullptr) {
-        ESP_LOGE(TAG, "Failed to create esp_modem device");
-        return;
-    }
-
-    ESP_LOGI(TAG, "Modem device successfully initialized!");
+    ESP_LOGI(TAG, "PPP network interface created successfully. APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
