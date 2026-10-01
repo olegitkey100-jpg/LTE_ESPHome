@@ -17,7 +17,19 @@ static const char *TAG = "ppp_modem.component";
 
 PppModemComponent::PppModemComponent() = default;
 
-void PppModemComponent::init_usb_pins_() {
+void PppModemComponent::setup() {
+    ESP_LOGI(TAG, "=== STEP 0: setup() started ===");
+
+    // Базова ініціалізація NVS
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        nvs_flash_erase();
+        nvs_flash_init();
+    }
+    ESP_LOGI(TAG, "=== STEP 1: NVS initialized ===");
+
+    // Тимчасово закоментуємо піни та USB Host, щоб перевірити, чи це вони викликають краш
+    /*
     const gpio_config_t io_config = {
         .pin_bit_mask = 1ULL << GPIO_NUM_18,
         .mode = GPIO_MODE_OUTPUT,
@@ -27,142 +39,14 @@ void PppModemComponent::init_usb_pins_() {
     };
     gpio_config(&io_config);
     gpio_set_level(GPIO_NUM_18, 1);
+    */
+    ESP_LOGI(TAG, "=== STEP 2: Skipped pins for test ===");
 
-    const gpio_config_t power_io_config = {
-        .pin_bit_mask = (1ULL << GPIO_NUM_17) | (1ULL << GPIO_NUM_12) | (1ULL << GPIO_NUM_13),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
-    gpio_config(&power_io_config);
-
-    gpio_set_level(GPIO_NUM_17, 1);
-    gpio_set_level(GPIO_NUM_12, 0);
-    gpio_set_level(GPIO_NUM_13, 0);
-    vTaskDelay(pdMS_TO_TICKS(10));
-    gpio_set_level(GPIO_NUM_12, 1);
-    ESP_LOGI(TAG, "Forced USB OTG and power pins initialized for SIM7670G");
-}
-
-static void client_event_callback(const usb_host_client_event_msg_t *event_msg, void *arg) {
-    const char *TAG = "usb_client";
-    switch (event_msg->event) {
-        case USB_HOST_CLIENT_EVENT_NEW_DEV:
-            ESP_LOGI(TAG, "New USB device detected on the bus (Address: %d)", event_msg->new_dev.address);
-            break;
-        case USB_HOST_CLIENT_EVENT_DEV_GONE:
-            ESP_LOGW(TAG, "USB device disconnected");
-            break;
-        default:
-            break;
-    }
-}
-
-static void usb_lib_task(void *arg) {
-    const char *TAG = "usb_host_task";
-    
-    usb_host_client_config_t client_config;
-    memset(&client_config, 0, sizeof(client_config));
-    client_config.max_num_event_msg = 5;
-    client_config.async.client_event_callback = client_event_callback;
-    client_config.async.callback_arg = nullptr;
-
-    usb_host_client_handle_t client_handle;
-    if (usb_host_client_register(&client_config, &client_handle) != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to register USB host client");
-        vTaskDelete(nullptr);
-        return;
-    }
-
-    while (1) {
-        uint32_t event_flags;
-        usb_host_lib_handle_events(pdMS_TO_TICKS(1000), &event_flags);
-        usb_host_client_handle_events(client_handle, pdMS_TO_TICKS(10));
-    }
-}
-
-// Покрокова діагностична задача ініціалізації модема
-static void modem_init_task(void *arg) {
-    char *apn_str = (char *) arg;
-    const char *TAG = "modem_init";
-
-    ESP_LOGI(TAG, "1. Waiting for USB host and modem to stabilize (3s)...");
-    vTaskDelay(pdMS_TO_TICKS(3000));
-
-    ESP_LOGI(TAG, "2. Initializing ESP-NETIF PPP instance...");
-    esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
-    esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
-    if (esp_netif == nullptr) {
-        ESP_LOGE(TAG, "Failed to create ESP-NETIF PPP instance");
-        delete[] apn_str;
-        vTaskDelete(nullptr);
-        return;
-    }
-    ESP_LOGI(TAG, "3. ESP-NETIF PPP created successfully.");
-
-    ESP_LOGI(TAG, "4. Preparing DTE/DCE configs for APN: %s...", apn_str);
-    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
-
-    ESP_LOGI(TAG, "5. Calling esp_modem_new_dev()...");
-    void *modem_handle = esp_modem_new_dev(ESP_MODEM_DCE_SIM7600, &dte_config, &dce_config, esp_netif);
-    if (modem_handle == nullptr) {
-        ESP_LOGE(TAG, "Failed to create esp_modem device for SIM7670/7600");
-    } else {
-        ESP_LOGI(TAG, "6. esp_modem successfully initialized!");
-    }
-
-    delete[] apn_str;
-    vTaskDelete(nullptr);
-}
-
-void PppModemComponent::setup() {
-    ESP_LOGI(TAG, "Setting up SIM7670G 4G Modem component with USB Host & esp_modem...");
-
-    this->init_usb_pins_();
-
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        nvs_flash_erase();
-        nvs_flash_init();
-    }
-
+    // Тест ініціалізації мережевого стека
     esp_netif_init();
+    ESP_LOGI(TAG, "=== STEP 3: esp_netif_init() passed ===");
 
-    // 1. Інсталяція шини USB Host
-    const usb_host_config_t host_config = {
-        .skip_phy_setup = false,
-        .intr_flags = ESP_INTR_FLAG_LEVEL1,
-    };
-    ret = usb_host_install(&host_config);
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "Failed to install USB Host library: %s", esp_err_to_name(ret));
-        this->mark_failed();
-        return;
-    }
-
-    // 2. Фонова задача обробки подій USB
-    BaseType_t task_created = xTaskCreate(
-        usb_lib_task,
-        "usb_host",
-        4096,
-        nullptr,
-        5,
-        nullptr
-    );
-    if (task_created != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create USB host task");
-        this->mark_failed();
-        return;
-    }
-
-    // 3. Запуск покрокової задачі ініціалізації модема
-    char *apn_copy = new char[this->apn_.length() + 1];
-    strcpy(apn_copy, this->apn_.c_str());
-    xTaskCreate(modem_init_task, "modem_init", 4096, apn_copy, 4, nullptr);
-
-    ESP_LOGI(TAG, "Setup completed, waiting for background task...");
+    ESP_LOGI(TAG, "=== SETUP COMPLETED WITHOUT CRASH ===");
 }
 
 void PppModemComponent::loop() {
