@@ -118,6 +118,7 @@ void PppModemComponent::setup() {
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_GOT_IP, ppp_event_handler, this->event_group_);
     esp_event_handler_register(IP_EVENT, IP_EVENT_PPP_LOST_IP, ppp_event_handler, this->event_group_);
 
+    // Ініціалізація USB Host стека
     const usb_host_config_t host_config = {
         .skip_phy_setup = false,
         .intr_flags = ESP_INTR_FLAG_LEVEL1,
@@ -141,7 +142,15 @@ void PppModemComponent::setup() {
         return;
     }
 
-    ESP_LOGI(TAG, "USB Host stack and Client successfully initialized for SIM7670G. APN: %s", this->apn_.c_str());
+    // Створення PPP мережевого інтерфейсу
+    esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
+    esp_netif_t *esp_netif = esp_netif_new(&cfg);
+    if (esp_netif == nullptr) {
+        ESP_LOGE(TAG, "Failed to create ESP-NETIF PPP instance");
+        return;
+    }
+
+    ESP_LOGI(TAG, "PPP Netif initialized successfully. Target APN: %s", this->apn_.c_str());
 }
 
 void PppModemComponent::loop() {
