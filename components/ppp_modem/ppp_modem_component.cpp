@@ -68,8 +68,7 @@ void PppModemComponent::setup() {
 
     // Налаштування конфігурації esp_modem для роботи через USB та PPP
     esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG();
-    dce_config.apn = this->apn_.c_str();
+    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(this->apn_.c_str());
 
     ESP_LOGI(TAG, "ESP-NETIF PPP and Modem structures prepared. Target APN: %s", this->apn_.c_str());
 }
