@@ -129,8 +129,18 @@ void PppModemComponent::setup() {
         return;
     }
 
-    // 4. Використання конфігурації DCE з передачею APN
+    // 4. Налаштування та запуск модема через esp_modem USB API
+    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
     esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(this->apn_.c_str());
+
+    // Використовуємо стандартну функцію ініціалізації пристрою esp_modem для USB Host
+    esp_modem_|=\; // перевірка зв'язку
+    void *modem_handle = esp_modem_new_dev(ESP_MODEM_DCE_SIM7670, &dte_config, &dce_config, esp_netif);
+    if (modem_handle == nullptr) {
+        ESP_LOGE(TAG, "Failed to create esp_modem device for SIM7670");
+    } else {
+        ESP_LOGI(TAG, "esp_modem successfully initialized for SIM7670!");
+    }
 
     ESP_LOGI(TAG, "USB Host and PPP Netif initialized. Target APN: %s", this->apn_.c_str());
 }
