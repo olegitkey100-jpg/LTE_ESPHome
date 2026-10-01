@@ -82,7 +82,6 @@ static void usb_lib_task(void *arg) {
     }
 }
 
-// Покрокова ініціалізація модема в ізольованій задачі з детальними логами
 static void modem_init_task(void *arg) {
     char *apn_str = (char *) arg;
     const char *TAG = "modem_init";
@@ -131,8 +130,8 @@ void PppModemComponent::setup() {
     this->init_usb_pins_();
     ESP_LOGI(TAG, "=== STEP 2: init_usb_pins_() passed ===");
 
-    esp_netif_init();
-    ESP_LOGI(TAG, "=== STEP 3: esp_netif_init() passed ===");
+    // ЗАБОРОНЕНО викликати esp_netif_init() вдруге — прибираємо його!
+    ESP_LOGI(TAG, "=== STEP 3: esp_netif_init() skipped (handled by ESPHome core) ===");
 
     const usb_host_config_t host_config = {
         .skip_phy_setup = false,
@@ -161,7 +160,6 @@ void PppModemComponent::setup() {
     }
     ESP_LOGI(TAG, "=== STEP 5: usb_lib_task created ===");
 
-    // Запускаємо задачу ініціалізації модема
     char *apn_copy = new char[this->apn_.length() + 1];
     strcpy(apn_copy, this->apn_.c_str());
     xTaskCreate(modem_init_task, "modem_init", 4096, apn_copy, 4, nullptr);
