@@ -45,6 +45,43 @@ void PppModemComponent::init_usb_pins_() {
     ESP_LOGI(TAG, "Forced USB OTG and power pins initialized for SIM7670G");
 }
 
+static void client_event_callback(const usb_host_client_event_msg_t *event_msg, void *arg) {
+    const char *TAG = "usb_client";
+    switch (event_msg->event) {
+        case USB_HOST_CLIENT_EVENT_NEW_DEV:
+            ESP_LOGI(TAG, "New USB device detected on the bus (Address: %d)", event_msg->new_dev.address);
+            break;
+        case USB_HOST_CLIENT_EVENT_DEV_GONE:
+            ESP_LOGW(TAG, "USB device disconnected");
+            break;
+        default:
+            break;
+    }
+}
+
+static void usb_lib_task(void *arg) {
+    const char *TAG = "usb_host_task";
+    
+    usb_host_client_config_t client_config;
+    memset(&client_config, 0, sizeof(client_config));
+    client_config.max_num_event_msg = 5;
+    client_config.async.client_event_callback = client_event_callback;
+    client_config.async.callback_arg = nullptr;
+
+    usb_host_client_handle_t client_handle;
+    if (usb_host_client_register(&client_config, &client_handle) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register USB host client");
+        vTaskDelete(nullptr);
+        return;
+    }
+
+    while (1) {
+        uint32_t event_flags;
+        usb_host_lib_handle_events(pdMS_TO_TICKS(1000), &event_flags);
+        usb_host_client_handle_events(client_handle, pdMS_TO_TICKS(10));
+    }
+}
+
 void PppModemComponent::setup() {
     ESP_LOGI(TAG, "=== STEP 0: setup() started ===");
 
@@ -55,14 +92,42 @@ void PppModemComponent::setup() {
     }
     ESP_LOGI(TAG, "=== STEP 1: NVS initialized ===");
 
-    // Повертаємо ініціалізацію пінів живлення та USB OTG
     this->init_usb_pins_();
     ESP_LOGI(TAG, "=== STEP 2: init_usb_pins_() passed ===");
 
     esp_netif_init();
     ESP_LOGI(TAG, "=== STEP 3: esp_netif_init() passed ===");
 
-    ESP_LOGI(TAG, "=== PINS TEST COMPLETED WITHOUT CRASH ===");
+    // Додаємо ініціалізацію USB Host
+    const usb_host_config_t host_config = {
+        .skip_phy_setup = false,
+        .intr_flags = ESP_INTR_FLAG_LEVEL1,
+    };
+    ret = usb_host_install(&host_config);
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "Failed to install USB Host library: %s", esp_err_to_name(ret));
+        this->mark_failed();
+        return;
+    }
+    ESP_LOGI(TAG, "=== STEP 4: usb_host_install() passed ===");
+
+    // Запускаємо задачу обробки подій USB
+    BaseType_t task_created = xTaskCreate(
+        usb_lib_task,
+        "usb_host",
+        4096,
+        nullptr,
+        5,
+        nullptr
+    );
+    if (task_created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create USB host task");
+        this->mark_failed();
+        return;
+    }
+    ESP_LOGI(TAG, "=== STEP 5: usb_lib_task created successfully ===");
+
+    ESP_LOGI(TAG, "=== USB HOST TEST COMPLETED WITHOUT CRASH ===");
 }
 
 void PppModemComponent::loop() {
