@@ -88,41 +88,13 @@ static void modem_init_task(void *arg) {
 
     ESP_LOGI(TAG, "MODEM_STEP 1: Task started. Waiting 3s...");
     vTaskDelay(pdMS_TO_TICKS(3000));
-    ESP_LOGI(TAG, "MODEM_STEP 1.1: Delay finished.");
+    ESP_LOGI(TAG, "MODEM_STEP 2: Delay passed successfully without crash!");
 
-    // Перевіримо, чи викликається esp_netif_init() безпечно тут, якщо потрібно
-    // (або чи підтримується конфігурація PPP)
-    ESP_LOGI(TAG, "MODEM_STEP 2: Preparing esp_netif default PPP config...");
-    
-    #if CONFIG_ESP_NETIF_TCPIP_LWIP
-    ESP_LOGI(TAG, "LWIP is enabled in sdkconfig");
-    #else
-    ESP_LOGW(TAG, "LWIP macro not directly visible here");
-    #endif
-
-    esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
-    ESP_LOGI(TAG, "MODEM_STEP 2.1: Calling esp_netif_new()...");
-    
-    esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
-    if (esp_netif == nullptr) {
-        ESP_LOGE(TAG, "MODEM_STEP ERROR: Failed to create ESP-NETIF PPP instance (returned nullptr)");
-        delete[] apn_str;
-        vTaskDelete(nullptr);
-        return;
-    }
-    ESP_LOGI(TAG, "MODEM_STEP 3: ESP-NETIF PPP created successfully!");
-
-    ESP_LOGI(TAG, "MODEM_STEP 4: Setting up DTE/DCE configs for APN: %s", apn_str);
-    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
-
-    ESP_LOGI(TAG, "MODEM_STEP 5: Calling esp_modem_new_dev()...");
-    void *modem_handle = esp_modem_new_dev(ESP_MODEM_DCE_SIM7600, &dte_config, &dce_config, esp_netif);
-    
-    if (modem_handle == nullptr) {
-        ESP_LOGE(TAG, "MODEM_STEP 6: Failed to create esp_modem device!");
-    } else {
-        ESP_LOGI(TAG, "MODEM_STEP 6: SUCCESS! Modem initialized successfully.");
+    // Тимчасово пропускаємо виклик esp_netif_new та esp_modem_new_dev, 
+    // щоб перевірити, чи запрацює задача стабільно.
+    while (1) {
+        ESP_LOGI(TAG, "MODEM_STEP 3: Worker loop heartbeat...");
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 
     delete[] apn_str;
@@ -130,17 +102,17 @@ static void modem_init_task(void *arg) {
 }
 
 void PppModemComponent::setup() {
-    ESP_LOGI(TAG, "=== STEP 0: setup() started ==");
+    ESP_LOGI(TAG, "=== STEP 0: setup() started ===");
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         nvs_flash_erase();
         nvs_flash_init();
     }
-    ESP_LOGI(TAG, "=== STEP 1: NVS initialized ==");
+    ESP_LOGI(TAG, "=== STEP 1: NVS initialized ===");
 
     this->init_usb_pins_();
-    ESP_LOGI(TAG, "=== STEP 2: init_usb_pins_() passed ==");
+    ESP_LOGI(TAG, "=== STEP 2: init_usb_pins_() passed ===");
 
     ESP_LOGI(TAG, "=== STEP 3: Netif handled by framework ===");
 
