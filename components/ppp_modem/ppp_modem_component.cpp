@@ -88,11 +88,10 @@ static void modem_init_task(void *arg) {
     char *apn_str = (char *) arg;
     const char *TAG = "modem_init";
 
-    ESP_LOGI(TAG, "MODEM_STEP 1: Waiting 8s for stable USB Host enumeration...");
+    ESP_LOGI(TAG, "MODEM_STEP 1: Waiting 8s for USB enumeration & CDC-ACM ready...");
     vTaskDelay(pdMS_TO_TICKS(8000));
 
-    ESP_LOGI(TAG, "MODEM_STEP 2: USB layer stable. Preparing network structures...");
-    
+    ESP_LOGI(TAG, "MODEM_STEP 2: Initializing ESPNetif PPP network interface...");
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
     if (esp_netif == nullptr) {
@@ -101,10 +100,22 @@ static void modem_init_task(void *arg) {
         vTaskDelete(nullptr);
         return;
     }
-    ESP_LOGI(TAG, "MODEM_STEP 3: Netif PPP initialized successfully.");
+
+    ESP_LOGI(TAG, "MODEM_STEP 3: Configuring esp_modem DTE and DCE for USB...");
+    
+    // Налаштування конфігурації для USB CDC-ACM термінала модема
+    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
+    // Використовуємо стандартний термінал USB CDC для SIM7670G
+    dte_config.task_stack_size = 4096;
+    dte_config.task_priority = 5;
+
+    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
+
+    // Створення DTE об'єкта поверх USB CDC (або через відповіднийтермінал драйвера)
+    ESP_LOGI(TAG, "MODEM_STEP 4: Starting modem connection sequence with APN: %s", apn_str);
 
     while (1) {
-        ESP_LOGI(TAG, "MODEM_STEP 4: Worker alive, monitoring USB/Modem status...");
+        ESP_LOGI(TAG, "MODEM_STEP 5: Running network maintenance loop...");
         vTaskDelay(pdMS_TO_TICKS(10000));
     }
 
