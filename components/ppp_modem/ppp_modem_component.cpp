@@ -42,6 +42,7 @@ void PppModemComponent::init_usb_pins_() {
     gpio_set_level(GPIO_NUM_13, 0);
     vTaskDelay(pdMS_TO_TICKS(10));
     gpio_set_level(GPIO_NUM_12, 1);
+    ESP_LOGI(TAG, "Forced USB OTG and power pins initialized for SIM7670G");
 }
 
 static void client_event_callback(const usb_host_client_event_msg_t *event_msg, void *arg) {
@@ -87,10 +88,10 @@ static void modem_init_task(void *arg) {
     char *apn_str = (char *) arg;
     const char *task_tag = "modem_init";
 
-    ESP_LOGI(task_tag, "MODEM_STEP 1: Waiting 5s for stable USB Host enumeration...");
-    vTaskDelay(pdMS_TO_TICKS(5000));
+    ESP_LOGI(task_tag, "MODEM_STEP 1: Waiting 8s for stable USB Host enumeration...");
+    vTaskDelay(pdMS_TO_TICKS(8000));
 
-    ESP_LOGI(task_tag, "MODEM_STEP 2: Preparing network structures for APN: %s", apn_str);
+    ESP_LOGI(task_tag, "MODEM_STEP 2: USB layer stable. Preparing network structures...");
     
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
@@ -102,9 +103,11 @@ static void modem_init_task(void *arg) {
     }
     ESP_LOGI(task_tag, "MODEM_STEP 3: Netif PPP initialized successfully.");
 
+    ESP_LOGI(task_tag, "MODEM_STEP 4: Skipping broken esp_modem_new_dev, keeping USB host alive...");
+
     while (1) {
-        ESP_LOGI(task_tag, "MODEM_STEP 4: Worker alive, monitoring USB/Modem status...");
         vTaskDelay(pdMS_TO_TICKS(10000));
+        ESP_LOGI(task_tag, "MODEM_STEP 5: Safe worker loop active, no crashes.");
     }
 
     delete[] apn_str;
@@ -112,27 +115,49 @@ static void modem_init_task(void *arg) {
 }
 
 void PppModemComponent::setup() {
-    ESP_LOGI(TAG, "Initializing SIM7670G 4G Modem Component...");
+    ESP_LOGI(TAG, "=== STEP 0: setup() started ===");
+
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        nvs_flash_erase();
+        nvs_flash_init();
+    }
+    ESP_LOGI(TAG, "=== STEP 1: NVS initialized ===");
 
     this->init_usb_pins_();
+    ESP_LOGI(TAG, "=== STEP 2: init_usb_pins_() passed ===");
 
     const usb_host_config_t host_config = {
         .skip_phy_setup = false,
         .intr_flags = ESP_INTR_FLAG_LEVEL1,
     };
-    
-    esp_err_t ret = usb_host_install(&host_config);
+    ret = usb_host_install(&host_config);
     if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
         ESP_LOGE(TAG, "Failed to install USB Host library: %s", esp_err_to_name(ret));
         this->mark_failed();
         return;
     }
+    ESP_LOGI(TAG, "=== STEP 4: usb_host_install() passed ===");
 
-    xTaskCreate(usb_lib_task, "usb_host", 4096, nullptr, 5, nullptr);
+    BaseType_t task_created = xTaskCreate(
+        usb_lib_task,
+        "usb_host",
+        4096,
+        nullptr,
+        5,
+        nullptr
+    );
+    if (task_created != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create USB host task");
+        this->mark_failed();
+        return;
+    }
+    ESP_LOGI(TAG, "=== STEP 5: usb_lib_task created ===");
 
     char *apn_copy = new char[this->apn_.length() + 1];
     strcpy(apn_copy, this->apn_.c_str());
     xTaskCreate(modem_init_task, "modem_init", 4096, apn_copy, 4, nullptr);
+    ESP_LOGI(TAG, "=== STEP 6: modem_init_task spawned ===");
 }
 
 void PppModemComponent::loop() {
