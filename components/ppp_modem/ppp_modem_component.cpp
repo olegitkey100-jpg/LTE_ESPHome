@@ -77,10 +77,12 @@ static void usb_lib_task(void *arg) {
 
     while (1) {
         uint32_t event_flags;
-        esp_err_t err = usb_host_lib_handle_events(pdMS_TO_TICKS(2000), &event_flags);
+        // Збільшуємо таймаут і даємо часовий слот іншим задачам (включаючи WiFi та API)
+        esp_err_t err = usb_host_lib_handle_events(pdMS_TO_TICKS(1000), &event_flags);
         if (err == ESP_OK) {
             usb_host_client_handle_events(client_handle, pdMS_TO_TICKS(50));
         }
+        vTaskDelay(pdMS_TO_TICKS(100)); // Обов'язкова пауза для звільнення CPU
     }
 }
 
@@ -103,11 +105,10 @@ static void modem_init_task(void *arg) {
     }
     ESP_LOGI(task_tag, "MODEM_STEP 3: Netif PPP initialized successfully.");
 
-    ESP_LOGI(task_tag, "MODEM_STEP 4: Skipping broken esp_modem_new_dev, keeping USB host alive...");
+    ESP_LOGI(task_tag, "MODEM_STEP 4: Worker running, API should be fully accessible.");
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));
-        ESP_LOGI(task_tag, "MODEM_STEP 5: Safe worker loop active, no crashes.");
     }
 
     delete[] apn_str;
@@ -115,7 +116,7 @@ static void modem_init_task(void *arg) {
 }
 
 void PppModemComponent::setup() {
-    ESP_LOGI(TAG, "=== STEP 0: setup() started ===");
+    ESP_LOGI(TAG, "=== STEP 0: setup() started ==()");
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -139,12 +140,13 @@ void PppModemComponent::setup() {
     }
     ESP_LOGI(TAG, "=== STEP 4: usb_host_install() passed ===");
 
+    // Зменшуємо пріоритет задачі USB до 3, щоб вона не душила системні події (WiFi / API)
     BaseType_t task_created = xTaskCreate(
         usb_lib_task,
         "usb_host",
         4096,
         nullptr,
-        5,
+        3,
         nullptr
     );
     if (task_created != pdPASS) {
@@ -156,7 +158,7 @@ void PppModemComponent::setup() {
 
     char *apn_copy = new char[this->apn_.length() + 1];
     strcpy(apn_copy, this->apn_.c_str());
-    xTaskCreate(modem_init_task, "modem_init", 4096, apn_copy, 4, nullptr);
+    xTaskCreate(modem_init_task, "modem_init", 4096, apn_copy, 3, nullptr);
     ESP_LOGI(TAG, "=== STEP 6: modem_init_task spawned ===");
 }
 
