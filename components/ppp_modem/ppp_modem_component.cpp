@@ -17,7 +17,7 @@ static const char *TAG = "ppp_modem.component";
 
 PppModemComponent::PppModemComponent() = default;
 
-void PppModemComponent::init_usb_pins_() {
+static void init_usb_pins_() {
     const gpio_config_t io_config = {
         .pin_bit_mask = 1ULL << GPIO_NUM_18,
         .mode = GPIO_MODE_OUTPUT,
@@ -42,7 +42,6 @@ void PppModemComponent::init_usb_pins_() {
     gpio_set_level(GPIO_NUM_13, 0);
     vTaskDelay(pdMS_TO_TICKS(10));
     gpio_set_level(GPIO_NUM_12, 1);
-    ESP_LOGI(TAG, "Forced USB OTG and power pins initialized for SIM7670G");
 }
 
 static void client_event_callback(const usb_host_client_event_msg_t *event_msg, void *arg) {
@@ -77,12 +76,11 @@ static void usb_lib_task(void *arg) {
 
     while (1) {
         uint32_t event_flags;
-        // Збільшуємо таймаут і даємо часовий слот іншим задачам (включаючи WiFi та API)
-        esp_err_t err = usb_host_lib_handle_events(pdMS_TO_TICKS(1000), &event_flags);
+        esp_err_t err = usb_host_lib_handle_events(pdMS_TO_TICKS(2000), &event_flags);
         if (err == ESP_OK) {
             usb_host_client_handle_events(client_handle, pdMS_TO_TICKS(50));
         }
-        vTaskDelay(pdMS_TO_TICKS(100)); // Обов'язкова пауза для звільнення CPU
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -90,11 +88,31 @@ static void modem_init_task(void *arg) {
     char *apn_str = (char *) arg;
     const char *task_tag = "modem_init";
 
-    ESP_LOGI(task_tag, "MODEM_STEP 1: Waiting 8s for stable USB Host enumeration...");
-    vTaskDelay(pdMS_TO_TICKS(8000));
+    // Даємо повні 5 секунд на старт Wi-Fi, MQTT та API серверів ESPHome
+    ESP_LOGI(task_tag, "MODEM_STEP 0: Waiting 5s for ESPHome API and Network to start up...");
+    vTaskDelay(pdMS_TO_TICKS(5000));
 
-    ESP_LOGI(task_tag, "MODEM_STEP 2: USB layer stable. Preparing network structures...");
-    
+    ESP_LOGI(task_tag, "MODEM_STEP 1: Initializing USB power pins...");
+    init_usb_pins_();
+
+    ESP_LOGI(task_tag, "MODEM_STEP 2: Installing USB Host library...");
+    const usb_host_config_t host_config = {
+        .skip_phy_setup = false,
+        .intr_flags = ESP_INTR_FLAG_LEVEL1,
+    };
+    esp_err_t ret = usb_host_install(&host_config);
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(task_tag, "Failed to install USB Host library: %s", esp_err_to_name(ret));
+        delete[] apn_str;
+        vTaskDelete(nullptr);
+        return;
+    }
+
+    xTaskCreate(usb_lib_task, "usb_host", 4096, nullptr, 3, nullptr);
+    ESP_LOGI(task_tag, "MODEM_STEP 3: USB host task spawned, waiting 3s for bus stability...");
+    vTaskDelay(pdMS_TO_TICKS(3000));
+
+    ESP_LOGI(task_tag, "MODEM_STEP 4: Preparing Netif PPP structures for APN: %s", apn_str);
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
     esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
     if (esp_netif == nullptr) {
@@ -103,11 +121,10 @@ static void modem_init_task(void *arg) {
         vTaskDelete(nullptr);
         return;
     }
-    ESP_LOGI(task_tag, "MODEM_STEP 3: Netif PPP initialized successfully.");
-
-    ESP_LOGI(task_tag, "MODEM_STEP 4: Worker running, API should be fully accessible.");
+    ESP_LOGI(task_tag, "MODEM_STEP 5: Netif PPP initialized successfully.");
 
     while (1) {
+        ESP_LOGI(task_tag, "MODEM_STEP 6: Worker alive, API should be fully working.");
         vTaskDelay(pdMS_TO_TICKS(10000));
     }
 
@@ -116,50 +133,21 @@ static void modem_init_task(void *arg) {
 }
 
 void PppModemComponent::setup() {
-    ESP_LOGI(TAG, "=== STEP 0: setup() started ==()");
+    ESP_LOGI(TAG, "=== setup() starting non-blocking init ===");
 
+    // NVS ініціалізація
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         nvs_flash_erase();
         nvs_flash_init();
     }
-    ESP_LOGI(TAG, "=== STEP 1: NVS initialized ===");
 
-    this->init_usb_pins_();
-    ESP_LOGI(TAG, "=== STEP 2: init_usb_pins_() passed ===");
-
-    const usb_host_config_t host_config = {
-        .skip_phy_setup = false,
-        .intr_flags = ESP_INTR_FLAG_LEVEL1,
-    };
-    ret = usb_host_install(&host_config);
-    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "Failed to install USB Host library: %s", esp_err_to_name(ret));
-        this->mark_failed();
-        return;
-    }
-    ESP_LOGI(TAG, "=== STEP 4: usb_host_install() passed ===");
-
-    // Зменшуємо пріоритет задачі USB до 3, щоб вона не душила системні події (WiFi / API)
-    BaseType_t task_created = xTaskCreate(
-        usb_lib_task,
-        "usb_host",
-        4096,
-        nullptr,
-        3,
-        nullptr
-    );
-    if (task_created != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create USB host task");
-        this->mark_failed();
-        return;
-    }
-    ESP_LOGI(TAG, "=== STEP 5: usb_lib_task created ===");
-
+    // МИТТЄВО виходимо з setup(), щоб запустився API, а всю важку роботу кидаємо у фоновий таск
     char *apn_copy = new char[this->apn_.length() + 1];
     strcpy(apn_copy, this->apn_.c_str());
-    xTaskCreate(modem_init_task, "modem_init", 4096, apn_copy, 3, nullptr);
-    ESP_LOGI(TAG, "=== STEP 6: modem_init_task spawned ===");
+    xTaskCreate(modem_init_task, "modem_init", 4096, apn_copy, 4, nullptr);
+
+    ESP_LOGI(TAG, "=== setup() finished instantly, API unblocked ===");
 }
 
 void PppModemComponent::loop() {
