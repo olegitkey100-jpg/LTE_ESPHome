@@ -19,20 +19,21 @@ static void client_event_callback(const usb_host_client_event_msg_t *event_msg, 
     const char *client_tag = "usb_client";
     switch (event_msg->event) {
         case USB_HOST_CLIENT_EVENT_NEW_DEV:
-            ESP_LOGI(client_tag, ">>> New USB device detected on bus! Address: %d", event_msg->new_dev.address);
+            ESP_LOGI(client_tag, ">>> [EXPLICIT] New USB device detected on bus! Address: %d", event_msg->new_dev.address);
             break;
         case USB_HOST_CLIENT_EVENT_DEV_GONE:
-            ESP_LOGW(client_tag, "<<< USB device disconnected");
+            ESP_LOGW(client_tag, "<<< [EXPLICIT] USB device disconnected");
             break;
         default:
-            ESP_LOGD(client_tag, "USB client event: %d", event_msg->event);
+            ESP_LOGD(client_tag, "USB client event ID: %d", event_msg->event);
             break;
     }
 }
 
 static void usb_lib_task(void *arg) {
     const char *task_tag = "usb_host_task";
-    
+    ESP_LOGI(task_tag, "USB lib task started, registering client...");
+
     usb_host_client_config_t client_config;
     memset(&client_config, 0, sizeof(client_config));
     client_config.max_num_event_msg = 5;
@@ -46,11 +47,11 @@ static void usb_lib_task(void *arg) {
         vTaskDelete(nullptr);
         return;
     }
-    ESP_LOGI(task_tag, "USB host client registered successfully.");
+    ESP_LOGI(task_tag, "USB host client successfully registered. Handling events...");
 
     while (1) {
         uint32_t event_flags;
-        esp_err_t err = usb_host_lib_handle_events(pdMS_TO_TICKS(1000), &event_flags);
+        esp_err_t err = usb_host_lib_handle_events(pdMS_TO_TICKS(500), &event_flags);
         if (err == ESP_OK) {
             usb_host_client_handle_events(client_handle, pdMS_TO_TICKS(50));
         }
@@ -61,22 +62,22 @@ static void modem_delayed_init_task(void *arg) {
     char *apn_str = (char *) arg;
     const char *task_tag = "modem_init";
     
-    ESP_LOGI(task_tag, "MODEM_INIT: Applying proper power-on sequence for SIM7670G...");
+    ESP_LOGI(task_tag, "MODEM_INIT: Starting hardware sequence for SIM7670G...");
     
-    // Апаратне управління живленням модема для гарантованого холодного старту
+    // Потужність та скидання
     gpio_set_level(GPIO_NUM_18, 1);
-    gpio_set_level(GPIO_NUM_17, 0); // Вимикаємо живлення
+    gpio_set_level(GPIO_NUM_17, 0); 
     gpio_set_level(GPIO_NUM_12, 0);
     vTaskDelay(pdMS_TO_TICKS(1000));
     
-    gpio_set_level(GPIO_NUM_17, 1); // Вмикаємо живлення
+    gpio_set_level(GPIO_NUM_17, 1); 
     vTaskDelay(pdMS_TO_TICKS(500));
-    gpio_set_level(GPIO_NUM_12, 1); // PWRKEY імпульс
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    gpio_set_level(GPIO_NUM_12, 1); 
+    vTaskDelay(pdMS_TO_TICKS(1500));
     gpio_set_level(GPIO_NUM_12, 0);
 
-    ESP_LOGI(task_tag, "MODEM_INIT: Waiting 4s for modem internal boot & USB enumeration...");
-    vTaskDelay(pdMS_TO_TICKS(4000));
+    ESP_LOGI(task_tag, "MODEM_INIT: Waiting 3s for modem boot...");
+    vTaskDelay(pdMS_TO_TICKS(3000));
 
     ESP_LOGI(task_tag, "MODEM_INIT: Installing USB Host library...");
     const usb_host_config_t host_config = {
@@ -91,7 +92,7 @@ static void modem_delayed_init_task(void *arg) {
         vTaskDelete(nullptr);
         return;
     }
-    ESP_LOGI(task_tag, "MODEM_INIT: USB Host installed successfully.");
+    ESP_LOGI(task_tag, "MODEM_INIT: USB Host installed successfully (ret=%d).", ret);
 
     xTaskCreate(usb_lib_task, "usb_host", 4096, nullptr, 3, nullptr);
 
@@ -108,7 +109,7 @@ static void modem_delayed_init_task(void *arg) {
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));
-        ESP_LOGI(task_tag, "MODEM_INIT: Monitoring bus...");
+        ESP_LOGI(task_tag, "MODEM_INIT: Loop active. Check physical USB connection / D+ D- / VBUS.");
     }
 
     delete[] apn_str;
