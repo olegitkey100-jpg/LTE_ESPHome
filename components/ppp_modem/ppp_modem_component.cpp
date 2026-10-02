@@ -25,6 +25,7 @@ static void client_event_callback(const usb_host_client_event_msg_t *event_msg, 
             ESP_LOGW(client_tag, "<<< USB device disconnected");
             break;
         default:
+            ESP_LOGD(client_tag, "USB client event: %d", event_msg->event);
             break;
     }
 }
@@ -39,19 +40,20 @@ static void usb_lib_task(void *arg) {
     client_config.async.callback_arg = nullptr;
 
     usb_host_client_handle_t client_handle;
-    if (usb_host_client_register(&client_config, &client_handle) != ESP_OK) {
-        ESP_LOGE(task_tag, "Failed to register USB host client");
+    esp_err_t reg_err = usb_host_client_register(&client_config, &client_handle);
+    if (reg_err != ESP_OK) {
+        ESP_LOGE(task_tag, "Failed to register USB host client: %s", esp_err_to_name(reg_err));
         vTaskDelete(nullptr);
         return;
     }
+    ESP_LOGI(task_tag, "USB host client registered successfully.");
 
     while (1) {
         uint32_t event_flags;
-        esp_err_t err = usb_host_lib_handle_events(pdMS_TO_TICKS(2000), &event_flags);
+        esp_err_t err = usb_host_lib_handle_events(pdMS_TO_TICKS(1000), &event_flags);
         if (err == ESP_OK) {
             usb_host_client_handle_events(client_handle, pdMS_TO_TICKS(50));
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
@@ -59,8 +61,22 @@ static void modem_delayed_init_task(void *arg) {
     char *apn_str = (char *) arg;
     const char *task_tag = "modem_init";
     
-    ESP_LOGI(task_tag, "MODEM_INIT: Waiting 3s for complete system stabilization...");
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    ESP_LOGI(task_tag, "MODEM_INIT: Applying proper power-on sequence for SIM7670G...");
+    
+    // Апаратне управління живленням модема для гарантованого холодного старту
+    gpio_set_level(GPIO_NUM_18, 1);
+    gpio_set_level(GPIO_NUM_17, 0); // Вимикаємо живлення
+    gpio_set_level(GPIO_NUM_12, 0);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    
+    gpio_set_level(GPIO_NUM_17, 1); // Вмикаємо живлення
+    vTaskDelay(pdMS_TO_TICKS(500));
+    gpio_set_level(GPIO_NUM_12, 1); // PWRKEY імпульс
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    gpio_set_level(GPIO_NUM_12, 0);
+
+    ESP_LOGI(task_tag, "MODEM_INIT: Waiting 4s for modem internal boot & USB enumeration...");
+    vTaskDelay(pdMS_TO_TICKS(4000));
 
     ESP_LOGI(task_tag, "MODEM_INIT: Installing USB Host library...");
     const usb_host_config_t host_config = {
@@ -92,7 +108,7 @@ static void modem_delayed_init_task(void *arg) {
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(10000));
-        ESP_LOGI(task_tag, "MODEM_INIT: Polling USB bus and modem state...");
+        ESP_LOGI(task_tag, "MODEM_INIT: Monitoring bus...");
     }
 
     delete[] apn_str;
@@ -102,7 +118,6 @@ static void modem_delayed_init_task(void *arg) {
 void PppModemComponent::setup() {
     ESP_LOGI(TAG, "PPP Modem Component setup called safely.");
     
-    // Ініціалізація базових пінів живлення
     const gpio_config_t power_io_config = {
         .pin_bit_mask = (1ULL << GPIO_NUM_17) | (1ULL << GPIO_NUM_12) | (1ULL << GPIO_NUM_13) | (1ULL << GPIO_NUM_18),
         .mode = GPIO_MODE_OUTPUT,
@@ -111,10 +126,6 @@ void PppModemComponent::setup() {
         .intr_type = GPIO_INTR_DISABLE
     };
     gpio_config(&power_io_config);
-    gpio_set_level(GPIO_NUM_18, 1);
-    gpio_set_level(GPIO_NUM_17, 1);
-    gpio_set_level(GPIO_NUM_12, 1);
-    gpio_set_level(GPIO_NUM_13, 0);
 
     char *apn_copy = new char[this->apn_.length() + 1];
     strcpy(apn_copy, this->apn_.c_str());
