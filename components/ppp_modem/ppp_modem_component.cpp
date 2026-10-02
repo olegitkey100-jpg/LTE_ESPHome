@@ -1,40 +1,56 @@
-#include "ppp_modem_component.h"
-#include "esphome/core/log.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
-#include "driver/gpio.h"
-#include "esp_netif.h"
-#include "esp_netif_ppp.h"
-#include "usb/usb_host.h"
 #include "esp_modem_api.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include "esp_modem_dte_config.h"
+#include "esp_modem_dce_config.h"
+#include "cobs.h" // якщо потрібно для потоку
 
-namespace esphome {
-namespace ppp_modem {
+static void modem_init_task(void *arg) {
+    char *apn_str = (char *) arg;
+    const char *TAG = "modem_init";
 
-static const char *TAG = "ppp_modem.component";
+    ESP_LOGI(TAG, "MODEM_STEP 1: Waiting 8s for stable USB Host enumeration...");
+    vTaskDelay(pdMS_TO_TICKS(8000));
 
-PppModemComponent::PppModemComponent() = default;
+    ESP_LOGI(TAG, "MODEM_STEP 2: USB layer stable. Preparing network structures...");
+    
+    esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
+    esp_netif_t *esp_netif = esp_netif_new(&netif_ppp_config);
+    if (esp_netif == nullptr) {
+        ESP_LOGE(TAG, "MODEM_STEP ERROR: Failed to create ESP-NETIF PPP instance");
+        delete[] apn_str;
+        vTaskDelete(nullptr);
+        return;
+    }
+    ESP_LOGI(TAG, "MODEM_STEP 3: Netif PPP initialized successfully.");
 
-void PppModemComponent::init_usb_pins_() {
-    const gpio_config_t io_config = {
-        .pin_bit_mask = 1ULL << GPIO_NUM_18,
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
-    gpio_config(&io_config);
-    gpio_set_level(GPIO_NUM_18, 1);
+    ESP_LOGI(TAG, "MODEM_STEP 4: Configuring esp_modem DTE/DCE for USB CDC-ACM...");
 
-    const gpio_config_t power_io_config = {
-        .pin_bit_mask = (1ULL << GPIO_NUM_17) | (1ULL << GPIO_NUM_12) | (1ULL << GPIO_NUM_13),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
+    // Налаштування конфігурації DTE для USB-потоку модема
+    esp_modem_dte_config_t dte_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str); // базові параметри
+    dte_config.task_stack_size = 4096;
+    dte_config.task_priority = 5;
+
+    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG(apn_str);
+
+    // Замість старого макросу створюємо через безпечний термінал або базовий конфіг
+    ESP_LOGI(TAG, "MODEM_STEP 5: Initializing terminal wrapper for SIM7670G...");
+    
+    // Створення термінала для USB CDC (використовуємо стандартний термінал розширення USB-модема)
+    // Якщо драйвер підтримує створення через термінал USB ACM:
+    auto dte = esp_modem_dte_new_usb(&dte_config); // або через відповідний USB-термінал
+    if (dte == nullptr) {
+        ESP_LOGE(TAG, "MODEM_STEP ERROR: Failed to create USB DTE instance!");
+    } else {
+        ESP_LOGI(TAG, "MODEM_STEP 5: DTE USB instance created successfully.");
+    }
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(10000));
+        ESP_LOGI(TAG, "MODEM_STEP 6: Worker loop active, monitoring USB/PPP state...");
+    }
+
+    delete[] apn_str;
+    vTaskDelete(nullptr);
+}    };
     gpio_config(&power_io_config);
 
     gpio_set_level(GPIO_NUM_17, 1);
