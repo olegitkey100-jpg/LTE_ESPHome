@@ -1,6 +1,5 @@
-idf_component_register(SRC_DIRS "src"
-                    INCLUDE_DIRS "include"
-                    PRIV_INCLUDE_DIRS "private_include"
-                    REQUIRES driver usb_host
-                    PRIV_REQUIRES esp_event)
-
+idf_component_register(
+    SRCS "iot_usbh_modem.c" # (або назви ваших .c/.cpp файлів у цьому компоненті)
+    INCLUDE_DIRS "." "include"
+    REQUIRES usb_host esp_netif lwip
+)
