@@ -94,7 +94,12 @@ static void modem_delayed_init_task(void *arg) {
     }
     ESP_LOGI(task_tag, "MODEM_INIT: USB Host installed successfully (ret=%d).", ret);
 
-    xTaskCreate(usb_lib_task, "usb_host", 4096, nullptr, 3, nullptr);
+    BaseType_t task_created = xTaskCreate(usb_lib_task, "usb_host", 4096, nullptr, 3, nullptr);
+    if (task_created != pdPASS) {
+        ESP_LOGE(task_tag, "MODEM_INIT ERROR: Failed to create usb_host_task!");
+    } else {
+        ESP_LOGI(task_tag, "MODEM_INIT: usb_host_task created successfully.");
+    }
 
     ESP_LOGI(task_tag, "MODEM_INIT: Initializing Netif PPP layer...");
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
