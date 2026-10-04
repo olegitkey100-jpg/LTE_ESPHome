@@ -64,7 +64,7 @@ static void modem_delayed_init_task(void *arg) {
     
     ESP_LOGI(task_tag, "MODEM_INIT: Starting hardware sequence for SIM7670G...");
     
-    // Потужність та скидання
+    // Апаратне керування живленням та скиданням
     gpio_set_level(GPIO_NUM_18, 1);
     gpio_set_level(GPIO_NUM_17, 0); 
     gpio_set_level(GPIO_NUM_12, 0);
