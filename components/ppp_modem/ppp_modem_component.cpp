@@ -76,6 +76,14 @@ static void modem_delayed_init_task(void *arg) {
     vTaskDelay(pdMS_TO_TICKS(1500));
     gpio_set_level(GPIO_NUM_12, 0);
 
+    // Додаємо логування фактичного стану пінів після ініціалізації
+    int pin18_val = gpio_get_level(GPIO_NUM_18);
+    int pin17_val = gpio_get_level(GPIO_NUM_17);
+    int pin12_val = gpio_get_level(GPIO_NUM_12);
+    int pin13_val = gpio_get_level(GPIO_NUM_13);
+    ESP_LOGI(task_tag, "MODEM_INIT PIN STATES -> GPIO18: %d, GPIO17: %d, GPIO12: %d, GPIO13: %d", 
+             pin18_val, pin17_val, pin12_val, pin13_val);
+
     ESP_LOGI(task_tag, "MODEM_INIT: Waiting 3s for modem boot...");
     vTaskDelay(pdMS_TO_TICKS(3000));
 
