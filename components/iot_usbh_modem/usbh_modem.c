@@ -25,19 +25,19 @@
 
 static const char *TAG = "modem_board";
 
-static const int MODEM_DESTROY_BIT       = BIT0;
+static const int MODEM_DESTROY_BIT      = BIT0;
 static const int MODEM_DESTROY_DONE_BIT  = BIT1;
 static const int MODEM_NEW_STAGE_BIT     = BIT2;
 static const int MODEM_IDLE_BIT          = BIT4;
 
 typedef enum {
-    STAGE_DTE_LOSS,    /* dte loss, restoring to command state */
-    STAGE_IDLE,      /* in command state, waiting ppp on event */
+    STAGE_DTE_LOSS,     /* dte loss, restoring to command state */
+    STAGE_IDLE,         /* in command state, waiting ppp on event */
     STAGE_SYNC,         /* trying sync using AT modem */
     STAGE_STOP_PPP,     /* restoring to command state */
     STAGE_START_PPP,    /* trying dial-up */
     STAGE_RUNNING,      /* perfect, enjoy network */
-    STAGE_ERROR,      /* error stage */
+    STAGE_ERROR,        /* error stage */
 } modem_stage_t;
 
 typedef struct {
@@ -88,7 +88,6 @@ static void modem_board_clear_pdp_context_config(void)
         return;
     }
 
-    // The PDP strings are owned by this component after installation.
     if (g_modem_board->pdp.type != NULL) {
         free((void *)g_modem_board->pdp.type);
     }
@@ -106,7 +105,7 @@ static esp_err_t modem_board_configure_pdp_context(at_handle_t at_parser)
         return ESP_OK;
     }
 
-    ESP_LOGI(TAG, "Set PDP context: cid=%d, type=%s, apn=%s", g_modem_board->pdp.cid, g_modem_board->pdp.type, g_modem_board->pdp.apn);
+    ESP_LOGI(TAG, "Set PDP context for lifecell: cid=%d, type=%s, apn=%s", g_modem_board->pdp.cid, g_modem_board->pdp.type, g_modem_board->pdp.apn);
     esp_modem_at_pdp_t pdp = {
         .cid = g_modem_board->pdp.cid,
         .type = g_modem_board->pdp.type,
@@ -129,21 +128,19 @@ static esp_err_t modem_sync_state(iot_eth_driver_t *dte_drv)
 {
     at_handle_t atparser = esp_modem_dte_get_atparser(dte_drv);
 
-    // Try to set the modem to command mode first
     esp_err_t ret = esp_modem_dte_sync(dte_drv);
     ESP_RETURN_ON_ERROR(ret, TAG, "Failed to change to command mode");
 
     ret = at_cmd_set_echo(atparser, true);
     ESP_RETURN_ON_ERROR(ret, TAG, "Failed to enable echo");
 
-    // Print modem information
     char str[64] = {0};
     at_cmd_get_manufacturer_id(atparser, str, sizeof(str));
     ESP_LOGI(TAG, "Modem manufacturer ID: %s", str);
-    str[0] = '\0'; // clear the string buffer
+    str[0] = '\0';
     at_cmd_get_module_id(atparser, str, sizeof(str));
     ESP_LOGI(TAG, "Modem module ID: %s", str);
-    str[0] = '\0'; // clear the string buffer
+    str[0] = '\0';
     at_cmd_get_revision_id(atparser, str, sizeof(str));
     ESP_LOGI(TAG, "Modem revision ID: %s", str);
     return ESP_OK;
@@ -176,25 +173,23 @@ static void _modem_daemon_task(void *param)
 
     g_modem_board->modem_stage = STAGE_DTE_LOSS;
     while (true) {
-        /********************************** handle external event *********************************************************/
         EventBits_t bits = xEventGroupWaitBits(g_modem_board->evt_hdl, (MODEM_NEW_STAGE_BIT | MODEM_DESTROY_BIT), pdTRUE, pdFALSE, portMAX_DELAY);
         if (bits & MODEM_DESTROY_BIT) {
-            break; // destroy task
+            break;
         }
 
-        /************************************ Processing stage **********************************/
         ESP_LOGI(TAG, "Handling stage = %s", MODEM_STAGE_STR(g_modem_board->modem_stage));
         iot_eth_driver_t *dte_drv = g_modem_board->dte_drv;
 
         if (g_modem_board->modem_stage == STAGE_IDLE) {
-            xEventGroupSetBits(g_modem_board->evt_hdl, MODEM_IDLE_BIT); // set idle bit
+            xEventGroupSetBits(g_modem_board->evt_hdl, MODEM_IDLE_BIT);
         } else {
-            xEventGroupClearBits(g_modem_board->evt_hdl, MODEM_IDLE_BIT); // clear idle bit
+            xEventGroupClearBits(g_modem_board->evt_hdl, MODEM_IDLE_BIT);
         }
 
         switch (g_modem_board->modem_stage) {
         case STAGE_DTE_LOSS:
-            ESP_LOGI(TAG, "Modem DTE loss, ...");
+            ESP_LOGI(TAG, "Modem DTE loss, waiting...");
             vTaskDelay(pdMS_TO_TICKS(1000));
             break;
         case STAGE_IDLE:
@@ -212,24 +207,19 @@ static void _modem_daemon_task(void *param)
             goto _stage_succeed;
             break;
         case STAGE_STOP_PPP: {
-            iot_eth_stop(g_modem_board->eth_handle); // stop ppp
+            iot_eth_stop(g_modem_board->eth_handle);
             vTaskDelay(pdMS_TO_TICKS(300));
-            /**
-             * When the ppp netif is stopped, the 4G module may take some time to process the termination of the PPP connection.
-             * Some modules may return to command mode automatically, while others may require an explicit AT command to exit PPP mode.
-             */
             bool exit_ppp_with_at_cmd = false;
-#ifdef CONFIG_MOEDM_EXIT_PPP_WITH_AT_CMD
+#if defined(CONFIG_MODEM_EXIT_PPP_WITH_AT_CMD) || defined(CONFIG_MOEDM_EXIT_PPP_WITH_AT_CMD)
             exit_ppp_with_at_cmd = true;
 #endif
-            // if the dte is still connected, change to command mode
             if (esp_modem_dte_is_connected(dte_drv)) {
-                esp_modem_dte_change_port_mode(dte_drv, ESP_MODEM_COMMAND_MODE, exit_ppp_with_at_cmd); // change to command mode first
-                ret = esp_modem_dte_hang_up(dte_drv); // hang up
+                esp_modem_dte_change_port_mode(dte_drv, ESP_MODEM_COMMAND_MODE, exit_ppp_with_at_cmd);
+                ret = esp_modem_dte_hang_up(dte_drv);
                 ESP_GOTO_ON_ERROR(ret, _ppp_abort, TAG, "Failed to stop PPP");
                 g_modem_board->modem_stage = STAGE_IDLE;
             } else {
-                esp_modem_dte_on_stage_changed(dte_drv, IOT_ETH_LINK_DOWN); // notify link down
+                esp_modem_dte_on_stage_changed(dte_drv, IOT_ETH_LINK_DOWN);
                 vTaskDelay(pdMS_TO_TICKS(100));
                 g_modem_board->modem_stage = STAGE_DTE_LOSS;
             }
@@ -245,16 +235,16 @@ static void _modem_daemon_task(void *param)
 
             ESP_LOGI(TAG, "Check signal quality...");
             esp_modem_at_csq_t result;
-            DTE_RETRY_OPERATION(at_cmd_get_signal_quality(at_parser, &result) == ESP_OK && result.rssi > CONFIG_MODEM_RSSI_THRESHOLD && result.rssi < 99 && result.ber <= 99,
+            DTE_RETRY_OPERATION(at_cmd_get_signal_quality(at_parser, &result) == ESP_OK && result.rssi > 0 && result.rssi < 99 && result.ber <= 99,
                                 !esp_modem_dte_is_connected(dte_drv));
-            ESP_GOTO_ON_FALSE(result.rssi > CONFIG_MODEM_RSSI_THRESHOLD && result.rssi < 99 && result.ber <= 99,
+            ESP_GOTO_ON_FALSE(result.rssi > 0 && result.rssi < 99 && result.ber <= 99,
                               0, _ppp_abort, TAG, "Modem signal quality not ready! rssi=%d, ber=%d", result.rssi, result.ber);
 
             char str[128] = {0};
             at_cmd_get_pdp_context(at_parser, str, sizeof(str));
             ESP_LOGI(TAG, "PDP context: \"%s\"", str);
 
-            ESP_LOGI(TAG, "Check network registration...");
+            ESP_LOGI(TAG, "Check network registration (lifecell)...");
             esp_modem_at_cereg_t _cereg = {0};
             DTE_RETRY_OPERATION(
                 at_cmd_get_network_reg_status(at_parser, &_cereg) == ESP_OK &&
@@ -289,9 +279,8 @@ _ppp_abort:
             ESP_LOGE(TAG, "Modem in error state");
             break;
         default:
-            assert(0); //no stage get in here
+            assert(0);
 _stage_succeed:
-            //add delay between each stage
             vTaskDelay(pdMS_TO_TICKS(100));
             xEventGroupSetBits(g_modem_board->evt_hdl, MODEM_NEW_STAGE_BIT);
             break;
@@ -332,7 +321,6 @@ esp_err_t usbh_modem_install(const usbh_modem_config_t *config)
     g_modem_board->evt_hdl = xEventGroupCreate();
     ESP_GOTO_ON_FALSE(g_modem_board->evt_hdl != NULL, ESP_ERR_NO_MEM, err, TAG, "Failed to create event group");
 
-    // init the USB DTE
     esp_modem_dte_config_t dte_config = {
         .modem_id_list = config->modem_id_list,
         .cbs = {
@@ -367,17 +355,14 @@ esp_err_t usbh_modem_install(const usbh_modem_config_t *config)
     ESP_GOTO_ON_FALSE(g_modem_board->ppp_netif != NULL, ESP_ERR_NO_MEM, err, TAG, "Failed to create netif");
     esp_netif_attach(g_modem_board->ppp_netif, g_modem_board->glue);
 
-    // check if PPP error events are enabled, if not, do enable the error occurred/state changed
-    // to notify the modem layer when switching modes
     esp_netif_ppp_config_t ppp_config = {
         .ppp_error_event_enabled = true,
         .ppp_phase_event_enabled = true,
     };
     esp_netif_ppp_set_params(g_modem_board->ppp_netif, &ppp_config);
 
-    usbh_modem_ppp_auto_connect(true); // enable auto connect by default
+    usbh_modem_ppp_auto_connect(true);
 
-    /* Create Modem Daemon task */
     TaskHandle_t daemon_task_handle = NULL;
     xTaskCreate(_modem_daemon_task, "modem_daemon", 1024 * 3, NULL, 5, &daemon_task_handle);
     ESP_GOTO_ON_FALSE(daemon_task_handle != NULL, ESP_ERR_NO_MEM, err, TAG, "Failed to create Modem Daemon Task");
@@ -430,7 +415,6 @@ esp_err_t usbh_modem_ppp_start(TickType_t timeout)
     ESP_RETURN_ON_FALSE(g_modem_board->modem_stage != STAGE_RUNNING, ESP_ERR_INVALID_STATE, TAG, "PPP is already running, cannot start PPP again!");
     ESP_RETURN_ON_FALSE(g_modem_board->auto_connect == false, ESP_ERR_INVALID_STATE, TAG, "Modem auto connect is enabled, this function should not be called!");
 
-    //wait for modem idle
     EventBits_t bits = xEventGroupWaitBits(g_modem_board->evt_hdl, MODEM_IDLE_BIT, pdFALSE, pdFALSE, timeout);
     ESP_RETURN_ON_FALSE(bits & MODEM_IDLE_BIT, ESP_ERR_TIMEOUT, TAG, "Modem not idle after timeout %"PRIu32" ms", pdMS_TO_TICKS(timeout));
 

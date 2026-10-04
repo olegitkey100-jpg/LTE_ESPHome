@@ -6,7 +6,9 @@
 #include "esp_netif_ppp.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+extern "C" {
 #include "iot_usbh_modem.h"
+}
 #include "iot_usbh_cdc.h"
 
 namespace esphome {
