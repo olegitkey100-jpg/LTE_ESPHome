@@ -6,6 +6,7 @@ idf_component_register(
         "."
         "include"
         "private_include"
+        "${COMPONENT_KEEPS_PATH}"
     REQUIRES 
         esp_modem 
         usb_host
