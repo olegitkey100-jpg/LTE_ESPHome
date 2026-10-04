@@ -15,4 +15,5 @@ idf_component_register(
         lwip
         freertos
         iot_usbh_modem
+        iot_usbh_cdc
 )
