@@ -16,30 +16,10 @@ static const char *TAG = "ppp_modem.component";
 
 // Список сумісних 4G модемів (включно з SIM7670G)
 static const usb_modem_id_t usb_modem_id_list[] = {
-    {
-        .match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x1E0E, 0x9011},
-        .interface_idx = 2,
-        .ep_addr = -1,
-        .description = "SIMCOM, A7600C1/SIMCOM, A7670E"
-    },
-    {
-        .match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x05C6, 0x9330},
-        .interface_idx = 2,
-        .ep_addr = -1,
-        .description = "SIMCOM, SIM7670G-4G"
-    },
-    {
-        .match_id = {USB_DEVICE_ID_MATCH_VID_PID, 0x2C7C, 0x6001},
-        .interface_idx = 4,
-        .ep_addr = -1,
-        .description = "Quectel, EC600N-CN"
-    },
-    {
-        .match_id = {(usb_dev_match_flags_t)0, 0, 0},
-        .interface_idx = 0,
-        .ep_addr = 0,
-        .description = nullptr
-    }
+    {{USB_DEVICE_ID_MATCH_VID_PID, 0x1E0E, 0x9011}, 2, -1, "SIMCOM, A7600C1/SIMCOM, A7670E"},
+    {{USB_DEVICE_ID_MATCH_VID_PID, 0x05C6, 0x9330}, 2, -1, "SIMCOM, SIM7670G-4G"},
+    {{USB_DEVICE_ID_MATCH_VID_PID, 0x2C7C, 0x6001}, 4, -1, "Quectel, EC600N-CN"},
+    {{(usb_dev_match_flags_t)0, 0, 0}, 0, 0, nullptr},
 };
 
 PppModemComponent::PppModemComponent() = default;
