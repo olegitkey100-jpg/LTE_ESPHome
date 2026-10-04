@@ -12,5 +12,5 @@ idf_component_register(
         esp_netif
         lwip
         freertos
-        usb_host_modem
+        iot_usbh_modem
 )
