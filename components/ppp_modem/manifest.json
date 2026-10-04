@@ -1,0 +1,9 @@
+{
+  "domain": "ppp_modem",
+  "name": "PPP Modem",
+  "codeowners": [],
+  "documentation": "",
+  "iot_class": "Local Polling",
+  "dependencies": ["esp32"],
+  "esp-idf_components": ["esp_modem"]
+}
